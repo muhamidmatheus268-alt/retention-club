@@ -13,6 +13,7 @@ import ControleBase from './pages/ControleBase'
 import Acompanhamento from './pages/Acompanhamento'
 import CentralContas from './pages/CentralContas'
 import Pesquisas from './pages/Pesquisas'
+import ResetPassword from './pages/ResetPassword'
 
 function RootRedirect() {
   const { session, loading } = useAuth()
@@ -31,6 +32,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<P><AdminDashboard /></P>} />
           <Route path="/admin/calendar/:slug"       element={<P><AdminCalendar /></P>} />
           <Route path="/admin/diagnostico/:slug"    element={<P><Diagnostico /></P>} />
