@@ -15,6 +15,7 @@ import CentralContas from './pages/CentralContas'
 import Pesquisas from './pages/Pesquisas'
 import ResetPassword from './pages/ResetPassword'
 import QuizPage from './pages/QuizPage'
+import QuizRespostas from './pages/QuizRespostas'
 
 function RootRedirect() {
   const { session, loading } = useAuth()
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/admin/pesquisas/:slug"      element={<P><Pesquisas /></P>} />
           <Route path="/calendar/:slug" element={<ClientCalendar />} />
           <Route path="/quiz" element={<QuizPage />} />
+          <Route path="/admin/quiz-respostas" element={<P><QuizRespostas /></P>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -134,6 +134,7 @@ function AppShell({ children, activeModule, fullHeight }) {
         {/* Bottom */}
         <div className="border-t px-2 py-2.5 shrink-0" style={{ borderColor: '#1e1e2a' }}>
           <NavBottom icon={<GridIcon size={14} color="#555568" />} label="Painel geral" onClick={() => navigate('/admin')} />
+          <NavBottom icon={<FunnelIcon size={14} color="#555568" />} label="Funil CRM" onClick={() => navigate('/admin/quiz-respostas')} />
           <NavBottom icon={<LogoutIcon size={14} color="#555568" />} label="Sair" onClick={async () => { await signOut(); navigate('/login') }} />
         </div>
       </aside>
@@ -209,4 +210,5 @@ function ContasIcon({ size, color }) { return <svg width={size} height={size} vi
 function PesqIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4" stroke={color} strokeWidth="1.5"/><path d="M10 10l3 3" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function GridIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5"/><rect x="9" y="2" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5"/><rect x="2" y="9" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5"/><rect x="9" y="9" width="5" height="5" rx="1" stroke={color} strokeWidth="1.5"/></svg> }
 function LogoutIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M10 8H3M3 8l2.5-2.5M3 8l2.5 2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M8 4V3a1 1 0 011-1h3a1 1 0 011 1v10a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg> }
+function FunnelIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M2 3h12l-4.5 5.5V13l-3-1.5V8.5L2 3z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ExternalIcon({ size }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M10 2h4v4M14 2L8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
