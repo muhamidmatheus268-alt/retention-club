@@ -4,13 +4,13 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession]           = useState(undefined) // undefined = still loading
-  const [user, setUser]                 = useState(null)
-  const [profile, setProfile]           = useState(null)
+  const [session, setSession]               = useState(undefined)
+  const [user, setUser]                     = useState(null)
+  const [profile, setProfile]               = useState(null)
   const [profileLoading, setProfileLoading] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
-    if (!userId) { setProfile(null); setProfileLoading(false); return }
+    if (!userId) { setProfile(null); return }
     setProfileLoading(true)
     try {
       const { data } = await supabase
@@ -27,24 +27,16 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    let profileFetched = false
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (!profileFetched) {
-        profileFetched = true
-        fetchProfile(session?.user?.id)
-      }
+      fetchProfile(session?.user?.id)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (!profileFetched) {
-        profileFetched = true
-        fetchProfile(session?.user?.id)
-      }
+      fetchProfile(session?.user?.id)
     })
 
     return () => subscription.unsubscribe()
@@ -57,26 +49,17 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    await supabase.auth.signOut()
     setProfile(null)
   }
 
-  const role = profile?.role || null
-
-  // loading = still checking session OR profile is actively being fetched
+  const role    = profile?.role || null
   const loading = session === undefined || profileLoading
 
   const value = {
-    session,
-    user,
-    profile,
-    role,
-    loading,
-    signIn,
-    signOut,
+    session, user, profile, role, loading,
+    signIn, signOut,
     refreshProfile: () => fetchProfile(user?.id),
-    // helpers
     isAdmin:        role === 'admin',
     isAnalista:     role === 'analista',
     isCliente:      role === 'cliente',
