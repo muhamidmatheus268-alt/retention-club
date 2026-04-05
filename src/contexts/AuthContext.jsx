@@ -10,28 +10,41 @@ export function AuthProvider({ children }) {
   const [profileLoading, setProfileLoading] = useState(false)
 
   const fetchProfile = useCallback(async (userId) => {
-    if (!userId) { setProfile(null); return }
+    if (!userId) { setProfile(null); setProfileLoading(false); return }
     setProfileLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*, clients(id, name, slug, brand_color, brand_logo)')
-      .eq('user_id', userId)
-      .single()
-    setProfile(data || null)
-    setProfileLoading(false)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*, clients(id, name, slug, brand_color, brand_logo)')
+        .eq('user_id', userId)
+        .single()
+      setProfile(data || null)
+    } catch {
+      setProfile(null)
+    } finally {
+      setProfileLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // onAuthStateChange fires for the initial session too — use only this to avoid double fetch
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       fetchProfile(session?.user?.id)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      fetchProfile(session?.user?.id)
+    // Kick off initial session check in case onAuthStateChange is slow
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(s => {
+        // only update if still undefined (i.e. onAuthStateChange hasn't fired yet)
+        if (s === undefined) {
+          setUser(session?.user ?? null)
+          fetchProfile(session?.user?.id)
+          return session
+        }
+        return s
+      })
     })
 
     return () => subscription.unsubscribe()

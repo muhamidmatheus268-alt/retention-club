@@ -18,6 +18,7 @@ const MODULES = [
   { key: 'contas',         label: 'Central de Contas', path: 'contas',         Icon: ContasIcon },
   { key: 'pesquisas',      label: 'Pesquisas',         path: 'pesquisas',      Icon: PesqIcon },
   { key: 'imagens',        label: 'Banco de Imagens',  path: 'imagens',        Icon: ImgIcon },
+  { key: 'ata',            label: 'ATAs',              path: 'ata',            Icon: AtaIcon },
 ]
 
 export default function AppLayout({ children, module: activeModule, fullHeight = false }) {
@@ -218,3 +219,4 @@ function LogoutIcon({ size, color }) { return <svg width={size} height={size} vi
 function FunnelIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M2 3h12l-4.5 5.5V13l-3-1.5V8.5L2 3z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ExternalIcon({ size }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M10 2h4v4M14 2L8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ImgIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke={color} strokeWidth="1.5"/><circle cx="6" cy="7" r="1.2" fill={color}/><path d="M2 11l3-3 2.5 2.5L10 8l4 4" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> }
+function AtaIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="2" y="1.5" width="12" height="13" rx="2" stroke={color} strokeWidth="1.5"/><path d="M5 5.5h6M5 8h6M5 10.5h3.5" stroke={color} strokeWidth="1.3" strokeLinecap="round"/><path d="M10 10l1.5 1.5L14 9" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> }
