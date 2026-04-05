@@ -64,8 +64,8 @@ export function AuthProvider({ children }) {
 
   const role = profile?.role || null
 
-  // loading = still checking session OR (session exists but profile not yet fetched)
-  const loading = session === undefined || (!!session && profileLoading && !profile)
+  // loading = still checking session OR profile is actively being fetched
+  const loading = session === undefined || profileLoading
 
   const value = {
     session,

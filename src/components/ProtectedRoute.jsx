@@ -26,8 +26,11 @@ export default function ProtectedRoute({ children, roles }) {
 
   // If role-gating is active
   if (roles && roles.length > 0) {
-    // loading already false here — if role is null, user has no profile row → send to login
-    if (!role) return <Navigate to="/login" replace />
+    // If no role yet but session exists, wait a bit more (profile may still be loading)
+    if (!role) {
+      // Only redirect if explicitly a wrong role — never loop back to /login when logged in
+      return <LoadingScreen />
+    }
     if (!roles.includes(role)) {
       if (role === 'cliente') return <Navigate to="/cliente" replace />
       return <Navigate to="/login" replace />
