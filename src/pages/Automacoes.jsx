@@ -442,13 +442,84 @@ function RowModal({ msg, allFluxos, brandColor, onClose, onSave, onDelete }) {
   )
 }
 
+/* ── AI WhatsApp copy generator ── */
+async function generateWppCopy(msg) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY não configurado')
+
+  const prompt = `Você é um especialista em copywriting para WhatsApp de e-commerce brasileiro.
+
+Crie uma mensagem de WhatsApp para a seguinte automação:
+- Fluxo: ${msg.fluxo || 'Automação de marketing'}
+- Nome da régua: ${msg.nome || ''}
+- Momento de envio: ${msg.momento || ''}
+- Gatilho: ${msg.gatilho || ''}
+
+Regras obrigatórias para WhatsApp:
+- Mensagem curta, direta, conversacional (máximo 3 parágrafos)
+- Tom amigável e pessoal, como se fosse de uma pessoa real
+- Use emojis com moderação (2-4 no total)
+- Inclua uma chamada para ação clara no final
+- Linguagem informal mas profissional, em português brasileiro
+- Não use markdown (negrito, itálico) — texto puro apenas
+
+Retorne APENAS um JSON válido neste formato exato, sem texto adicional:
+{
+  "corpo": "texto completo da mensagem WhatsApp aqui",
+  "cta": "texto do botão ou link de ação"
+}`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Erro API: ${res.status}`)
+  const data = await res.json()
+  const text = data.content?.[0]?.text || ''
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('Resposta inválida da IA')
+  return JSON.parse(match[0])
+}
+
 /* ── script modal ── */
 function ScriptModal({ msg, brandColor, onClose, onSave }) {
   const [form, setForm] = useState({ ...msg })
   const [saving, setSaving] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [aiDone, setAiDone] = useState(false)
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
   async function save() { setSaving(true); await onSave(form); setSaving(false) }
   const isEmail = form.canal !== 'WhatsApp'
+
+  async function handleGenerateAI() {
+    setAiLoading(true); setAiError(''); setAiDone(false)
+    try {
+      const result = await generateWppCopy(form)
+      setForm(p => ({
+        ...p,
+        texto_corpo: result.corpo || p.texto_corpo,
+        cta:         result.cta   || p.cta,
+      }))
+      setAiDone(true)
+      setTimeout(() => setAiDone(false), 3000)
+    } catch (e) {
+      setAiError(e.message || 'Erro ao gerar copy')
+    }
+    setAiLoading(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
       style={{ backgroundColor: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
@@ -466,11 +537,37 @@ function ScriptModal({ msg, brandColor, onClose, onSave }) {
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: S.ib }}>
-            <div className="px-4 py-2.5 border-b" style={{ backgroundColor: '#0e0e18', borderColor: S.ib }}>
+            <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ backgroundColor: '#0e0e18', borderColor: S.ib }}>
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: S.faint }}>
                 {isEmail ? '✉ Script do Email' : '📱 Script do WhatsApp'}
               </p>
+              {!isEmail && (
+                <button
+                  onClick={handleGenerateAI}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+                  style={{
+                    backgroundColor: aiDone ? '#10b98120' : brandColor + '20',
+                    color: aiDone ? '#10b981' : brandColor,
+                    border: `1px solid ${aiDone ? '#10b98140' : brandColor + '40'}`,
+                  }}
+                >
+                  {aiLoading ? (
+                    <>
+                      <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40" strokeDashoffset="10"/>
+                      </svg>
+                      Gerando…
+                    </>
+                  ) : aiDone ? '✓ Copy gerado!' : '✨ Gerar com IA'}
+                </button>
+              )}
             </div>
+            {aiError && (
+              <div className="px-4 py-2 text-xs text-red-400" style={{ backgroundColor: '#1a0a0a' }}>
+                {aiError}
+              </div>
+            )}
             <div className="p-4 space-y-4" style={{ backgroundColor: '#0a0a12' }}>
               {isEmail && (
                 <>
@@ -490,7 +587,8 @@ function ScriptModal({ msg, brandColor, onClose, onSave }) {
               )}
               <MField label="Corpo">
                 <MTextarea value={form.texto_corpo} onChange={v => f('texto_corpo', v)}
-                  placeholder="Corpo da mensagem…" rows={5} brandColor={brandColor} />
+                  placeholder={isEmail ? 'Corpo da mensagem…' : 'Mensagem WhatsApp… (ou clique em ✨ Gerar com IA)'}
+                  rows={5} brandColor={brandColor} />
               </MField>
               <MField label="CTA">
                 <MInput value={form.cta} onChange={v => f('cta', v)}
