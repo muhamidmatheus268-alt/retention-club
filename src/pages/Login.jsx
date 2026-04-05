@@ -18,16 +18,17 @@ export default function Login() {
     try {
       const { user } = await signIn(email, password)
 
-      // Fetch profile to determine redirect
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single()
+      // Fetch profile to determine redirect — failure here should NOT block login
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single()
+        if (profile?.role === 'cliente') { navigate('/cliente'); return }
+      } catch { /* no profile yet — fall through to /admin */ }
 
-      const role = profile?.role
-      if (role === 'cliente') navigate('/cliente')
-      else navigate('/admin')
+      navigate('/admin')
     } catch {
       setError('E-mail ou senha inválidos.')
     } finally {
