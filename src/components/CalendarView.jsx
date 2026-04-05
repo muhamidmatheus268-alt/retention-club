@@ -11,9 +11,10 @@ const WEEKDAYS    = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 const STATUS_CONFIG = {
-  pendente: { label: 'Pendente', color: '#a0aec0' },
-  criado:   { label: 'Criado',   color: '#4299e1' },
-  enviado:  { label: 'Enviado',  color: '#48bb78' },
+  pendente:  { label: 'Pendente',  color: '#a0aec0' },
+  agendado:  { label: 'Agendado',  color: '#8b5cf6' },
+  criado:    { label: 'Criado',    color: '#4299e1' },
+  enviado:   { label: 'Enviado',   color: '#48bb78' },
 }
 
 const MENSURACAO_OPTIONS = [
@@ -29,6 +30,7 @@ const EMAIL_ROWS = [
   { key: 'segmentacao',       label: 'Segmentação' },
   { key: 'tema',              label: 'Tema' },
   { key: 'descricao',         label: 'Descrição' },
+  { key: 'horario',           label: 'Horário' },
   { key: 'assunto',           label: 'Assunto' },
   { key: 'preheader',         label: 'Preheader' },
   { key: 'link_copy',         label: 'Copy / Link' },
@@ -68,7 +70,25 @@ const EMPTY_ENTRY = {
   acao_comercial: false,
   tipo_template: 'marketing', tamanho_base: '',
   email_thumbnail: '',
+  horario: '',
 }
+
+const EMPTY_RESULT = {
+  res_receita: '', res_pedidos: '', res_ticket_medio: '',
+  res_taxa_conversao: '', res_entregabilidade: '',
+  res_base_utilizada: '', res_qtd_envios: '',
+  res_print_url: '', res_notas: '',
+}
+
+const RESULT_FIELDS = [
+  { key: 'res_receita',        label: 'Receita',           type: 'brl',  placeholder: '0,00' },
+  { key: 'res_pedidos',        label: 'Pedidos',           type: 'int',  placeholder: '0' },
+  { key: 'res_ticket_medio',   label: 'Ticket Médio',      type: 'brl',  placeholder: '0,00' },
+  { key: 'res_taxa_conversao', label: 'Taxa de Conversão', type: 'pct',  placeholder: '0.0' },
+  { key: 'res_entregabilidade',label: 'Entregabilidade',   type: 'pct',  placeholder: '0.0' },
+  { key: 'res_base_utilizada', label: 'Base Utilizada',    type: 'int',  placeholder: '0' },
+  { key: 'res_qtd_envios',     label: 'Qtd. Envios',       type: 'int',  placeholder: '0' },
+]
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,7 +130,122 @@ function formatBRL(value) {
 }
 
 function getMensuracaoLabel(value) {
-  return MENSURACAO_OPTIONS.find(o => o.value === value)?.label || value || '—'
+  return MENSURACAO_OPTIONS.find(o => o.value === value)?.label || value || ''
+}
+
+function getOutsideDays(year, month) {
+  const firstDow = getDow(year, month, 1)
+  const prevY = month === 0 ? year - 1 : year
+  const prevM = month === 0 ? 11 : month - 1
+  const prevTotal = getDaysInMonth(prevY, prevM)
+  const total = getDaysInMonth(year, month)
+  const lastDow = getDow(year, month, total)
+  const nextM = month === 11 ? 0 : month + 1
+
+  const prev = {}
+  for (let i = 0; i < firstDow; i++) {
+    prev[i] = { day: prevTotal - firstDow + 1 + i, m: prevM }
+  }
+  const next = {}
+  let nd = 1
+  for (let i = lastDow + 1; i < 7; i++) {
+    next[i] = { day: nd++, m: nextM }
+  }
+  return { prev, next }
+}
+
+// ─── Brazilian Holidays ───────────────────────────────────────────────────────
+
+const FIXED_HOLIDAYS = [
+  { month: 1,  day: 1,  name: 'Confraternização Universal' },
+  { month: 4,  day: 21, name: 'Tiradentes' },
+  { month: 5,  day: 1,  name: 'Dia do Trabalho' },
+  { month: 6,  day: 12, name: 'Dia dos Namorados' },
+  { month: 9,  day: 7,  name: 'Independência do Brasil' },
+  { month: 10, day: 12, name: 'Nossa Senhora Aparecida' },
+  { month: 11, day: 2,  name: 'Finados' },
+  { month: 11, day: 15, name: 'Proclamação da República' },
+  { month: 11, day: 20, name: 'Consciência Negra' },
+  { month: 11, day: 25, name: 'Black Friday' },
+  { month: 12, day: 25, name: 'Natal' },
+]
+
+const COMMERCE_DATES = [
+  { month: 3,  day: 8,  name: "Dia da Mulher" },
+  { month: 5,  day: 11, name: 'Dia das Mães' },   // 2nd Sunday May — approximate
+  { month: 8,  day: 10, name: 'Dia dos Pais' },   // 2nd Sunday Aug — approximate
+  { month: 10, day: 31, name: 'Halloween' },
+  { month: 12, day: 20, name: 'Última semana Natal' },
+]
+
+function calcEaster(year) {
+  const a = year % 19
+  const b = Math.floor(year / 100)
+  const c = year % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day   = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(year, month - 1, day)
+}
+
+function addDays(date, n) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+function getBrazilianHolidays(year, month) {
+  // month is 0-indexed
+  const result = {}
+
+  const add = (date, name, isCommerce = false) => {
+    if (date.getFullYear() === year && date.getMonth() === month) {
+      const d = date.getDate()
+      if (!result[d]) result[d] = []
+      result[d].push({ name, isCommerce })
+    }
+  }
+
+  // Fixed
+  FIXED_HOLIDAYS.forEach(h => add(new Date(year, h.month - 1, h.day), h.name))
+  COMMERCE_DATES.forEach(h => add(new Date(year, h.month - 1, h.day), h.name, true))
+
+  // Easter-based
+  const easter = calcEaster(year)
+  add(addDays(easter, -48), 'Carnaval (2ª)', true)
+  add(addDays(easter, -47), 'Carnaval (3ª)', true)
+  add(addDays(easter, -2),  'Sexta-feira Santa')
+  add(easter,               'Páscoa', true)
+  add(addDays(easter, 60),  'Corpus Christi')
+
+  // Dia das Mães — 2nd Sunday of May
+  if (month === 4) {
+    let sundays = 0
+    for (let d = 1; d <= 31; d++) {
+      const dt = new Date(year, 4, d)
+      if (dt.getMonth() !== 4) break
+      if (dt.getDay() === 0) { sundays++; if (sundays === 2) { add(dt, 'Dia das Mães', true); break } }
+    }
+  }
+  // Dia dos Pais — 2nd Sunday of August
+  if (month === 7) {
+    let sundays = 0
+    for (let d = 1; d <= 31; d++) {
+      const dt = new Date(year, 7, d)
+      if (dt.getMonth() !== 7) break
+      if (dt.getDay() === 0) { sundays++; if (sundays === 2) { add(dt, 'Dia dos Pais', true); break } }
+    }
+  }
+
+  return result
 }
 
 // ─── theme ────────────────────────────────────────────────────────────────────
@@ -190,6 +325,11 @@ export default function CalendarView({
   const [saving, setSaving]       = useState(false)
   const [deleting, setDeleting]   = useState(false)
   const [modalError, setModalErr] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [modalTab, setModalTab]   = useState('planejado')
+  const [result, setResult]       = useState(EMPTY_RESULT)
+  const [resSaving, setResSaving] = useState(false)
+  const [resSaved, setResSaved]   = useState(false)
 
   const t = isDark ? DARK : LIGHT
   const rows = channel === 'email' ? EMAIL_ROWS
@@ -252,6 +392,10 @@ export default function CalendarView({
     if (!isAdmin) return
     const entry = getEntry(day)
     setModal({ date: formatDate(year, month, day), entry })
+    setModalTab('planejado')
+    setResult(entry ? Object.fromEntries(
+      Object.keys(EMPTY_RESULT).map(k => [k, entry[k] != null ? String(entry[k]) : ''])
+    ) : { ...EMPTY_RESULT })
     setForm(entry ? {
       tema:              entry.tema              || '',
       descricao:         entry.descricao         || '',
@@ -266,11 +410,12 @@ export default function CalendarView({
       tipo_template:     entry.tipo_template     || 'marketing',
       tamanho_base:      entry.tamanho_base      != null ? String(entry.tamanho_base) : '',
       email_thumbnail:   entry.email_thumbnail   || '',
+      horario:           entry.horario           || '',
     } : { ...EMPTY_ENTRY })
     setModalErr('')
   }
 
-  function closeModal() { setModal(null); setModalErr('') }
+  function closeModal() { setModal(null); setModalErr(''); setResSaved(false) }
 
   async function handleSave() {
     if (!modal) return
@@ -302,9 +447,77 @@ export default function CalendarView({
     setDeleting(false)
   }
 
-  const today    = new Date()
-  const isToday  = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear()
-  const weeks    = getWeeks(year, month)
+  async function handleAISuggest() {
+    setAiLoading(true)
+    setModalErr('')
+    try {
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tema: form.tema,
+          channel,
+          date: modal?.date,
+          acao_comercial: form.acao_comercial,
+          client_id: clientId,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setModalErr((data.error || 'Erro ao gerar sugestão') + (data.detail ? ': ' + data.detail : ''))
+      } else {
+        setForm(f => ({
+          ...f,
+          tema:        data.tema        || f.tema,
+          segmentacao: data.segmentacao || f.segmentacao,
+          descricao:   data.descricao   || f.descricao,
+          assunto:     data.assunto     || f.assunto,
+          preheader:   data.preheader   || f.preheader,
+          observacoes: data.observacoes || f.observacoes,
+        }))
+      }
+    } catch (e) {
+      setModalErr('Erro de conexão com a IA')
+    }
+    setAiLoading(false)
+  }
+
+  async function handleSaveResult() {
+    if (!modal?.entry?.id) return
+    setResSaving(true)
+    const payload = Object.fromEntries(
+      Object.keys(EMPTY_RESULT).map(k => [
+        k,
+        k === 'res_print_url' || k === 'res_notas'
+          ? result[k] || null
+          : result[k] !== '' ? parseFloat(result[k]) : null
+      ])
+    )
+    await supabase.from('calendar_entries').update(payload).eq('id', modal.entry.id)
+    await fetchEntries()
+    setResSaving(false)
+    setResSaved(true)
+    setTimeout(() => setResSaved(false), 2500)
+  }
+
+  const today        = new Date()
+  const isToday      = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear()
+  const weeks        = getWeeks(year, month)
+  const outsideDays  = getOutsideDays(year, month)
+  const holidaysMap  = getBrazilianHolidays(year, month)
+  const lastWeekIdx = weeks.length - 1
+
+  // ── Monthly results BI ────────────────────────────────────────────────────
+  const resultEntries = entries.filter(e => e.res_receita != null || e.res_pedidos != null)
+  const biReceita   = resultEntries.reduce((s, e) => s + (parseFloat(e.res_receita) || 0), 0)
+  const biPedidos   = resultEntries.reduce((s, e) => s + (parseFloat(e.res_pedidos) || 0), 0)
+  const biEnvios    = resultEntries.reduce((s, e) => s + (parseFloat(e.res_qtd_envios) || 0), 0)
+  const biConvArr   = resultEntries.filter(e => e.res_taxa_conversao != null).map(e => parseFloat(e.res_taxa_conversao))
+  const biConv      = biConvArr.length ? biConvArr.reduce((s, v) => s + v, 0) / biConvArr.length : null
+  const biEntArr    = resultEntries.filter(e => e.res_entregabilidade != null).map(e => parseFloat(e.res_entregabilidade))
+  const biEnt       = biEntArr.length ? biEntArr.reduce((s, v) => s + v, 0) / biEntArr.length : null
+  const biTicket    = biReceita > 0 && biPedidos > 0 ? biReceita / biPedidos : null
+  const hasBiData   = resultEntries.length > 0
   const chLabel  = CHANNELS.find(c => c.key === channel)?.label || channel
   const fontStyle = brandFont ? { fontFamily: `'${brandFont}', sans-serif` } : {}
   const rootBg = isDark ? '#030712' : '#f6f4f0'
@@ -374,6 +587,67 @@ export default function CalendarView({
 
         {loading && <span className={`text-xs ${t.textFaint}`}>Carregando…</span>}
       </div>
+
+      {/* ── Results BI Strip ── */}
+      {hasBiData && (
+        <div
+          className="shrink-0 flex items-center gap-6 flex-wrap px-6 py-3 border-b"
+          style={{
+            borderColor: isDark ? '#1f2937' : '#e5e7eb',
+            backgroundColor: isDark ? '#0a0f1a' : '#fafaf9',
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#555568' }}>
+            Resultados do mês
+          </span>
+          {[
+            { label: 'Receita', value: biReceita > 0 ? formatBRL(biReceita) : null },
+            { label: 'Pedidos', value: biPedidos > 0 ? biPedidos.toLocaleString('pt-BR') : null },
+            { label: 'Ticket Médio', value: biTicket ? formatBRL(biTicket) : null },
+            { label: 'Conversão', value: biConv != null ? `${biConv.toFixed(1)}%` : null },
+            { label: 'Entregab.', value: biEnt != null ? `${biEnt.toFixed(1)}%` : null },
+            { label: 'Envios', value: biEnvios > 0 ? biEnvios.toLocaleString('pt-BR') : null },
+          ].filter(m => m.value).map(m => (
+            <div key={m.label} className="flex items-center gap-1.5">
+              <span className="text-[10px]" style={{ color: isDark ? '#555568' : '#78716c' }}>{m.label}</span>
+              <span className="text-xs font-bold" style={{ color: brandColor }}>{m.value}</span>
+            </div>
+          ))}
+          <span className="text-[10px]" style={{ color: isDark ? '#333340' : '#bfbfbf' }}>
+            {resultEntries.length} {resultEntries.length === 1 ? 'campanha' : 'campanhas'} com dados
+          </span>
+        </div>
+      )}
+
+      {/* ── Holidays strip ── */}
+      {Object.keys(holidaysMap).length > 0 && (
+        <div
+          className="shrink-0 flex items-center gap-2 flex-wrap px-6 py-2.5 border-b"
+          style={{
+            borderColor: isDark ? '#1f2937' : '#e5e7eb',
+            backgroundColor: isDark ? '#0c0f1a' : '#faf9f7',
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: '#555568' }}>
+            📅 Datas
+          </span>
+          {Object.entries(holidaysMap)
+            .sort(([a], [b]) => Number(a) - Number(b))
+            .map(([day, holidays]) =>
+              holidays.map((h, i) => (
+                <span
+                  key={`${day}-${i}`}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap"
+                  style={h.isCommerce
+                    ? { backgroundColor: brandColor + '22', color: brandColor }
+                    : { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', color: isDark ? '#94a3b8' : '#64748b' }}
+                >
+                  {day}/{String(month + 1).padStart(2, '0')} · {h.name}
+                </span>
+              ))
+            )}
+        </div>
+      )}
 
       {/* ── Weekly calendar ── */}
       <div className="flex-1 overflow-auto">
@@ -449,7 +723,7 @@ export default function CalendarView({
                               } : {}),
                             }}
                           >
-                            {day && (
+                            {day ? (
                               <div className="flex flex-col items-center gap-0.5">
                                 {isPilar && (
                                   <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500 mb-0.5">
@@ -465,8 +739,32 @@ export default function CalendarView({
                                 >
                                   {day}/{String(month + 1).padStart(2, '0')}
                                 </span>
+                                {holidaysMap[day]?.map((h, hi) => (
+                                  <span
+                                    key={hi}
+                                    className="mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold leading-tight text-center max-w-[100px] truncate"
+                                    style={h.isCommerce
+                                      ? { backgroundColor: brandColor + '25', color: brandColor }
+                                      : { backgroundColor: isDark ? '#1e2d3d' : '#e0f2fe', color: isDark ? '#7dd3fc' : '#0369a1' }}
+                                    title={h.name}
+                                  >
+                                    {h.name}
+                                  </span>
+                                ))}
                               </div>
-                            )}
+                            ) : (() => {
+                              const od = wi === 0 ? outsideDays.prev[ci] : wi === lastWeekIdx ? outsideDays.next[ci] : null
+                              return od ? (
+                                <div className="flex flex-col items-center gap-0.5" style={{ opacity: 0.18 }}>
+                                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: isDark ? '#9ca3af' : '#78716c' }}>
+                                    {WEEKDAYS[ci]}
+                                  </span>
+                                  <span className="text-sm font-bold" style={{ color: isDark ? '#9ca3af' : '#78716c' }}>
+                                    {od.day}/{String(od.m + 1).padStart(2, '0')}
+                                  </span>
+                                </div>
+                              ) : null
+                            })()}
                           </th>
                         )
                       })}
@@ -561,12 +859,12 @@ export default function CalendarView({
       {/* ── Modal ── */}
       {modal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}
         >
           <div
-            className={`${t.modalBg} border rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col`}
+            className={`modal-panel ${t.modalBg} border rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col`}
             style={{
               ...fontStyle,
               boxShadow: isDark
@@ -574,16 +872,34 @@ export default function CalendarView({
                 : '0 25px 60px rgba(0,0,0,0.15)',
             }}
           >
-            <div className={`flex items-center justify-between px-6 py-4 border-b ${t.border}`}>
-              <div>
-                <p className={`text-xs font-semibold uppercase tracking-widest ${t.textFaint}`}>
-                  {chLabel} — {modal.date}
-                </p>
-                <p className={`font-bold text-base mt-0.5 ${t.text}`}>
-                  {modal.entry ? 'Editar entrada' : 'Nova entrada'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
+            <div className={`flex flex-col border-b ${t.border}`}>
+              <div className={`flex items-center justify-between px-6 py-4`}>
+                <div>
+                  <p className={`text-xs font-semibold uppercase tracking-widest ${t.textFaint}`}>
+                    {chLabel} · {modal.date}
+                  </p>
+                  <p className={`font-bold text-base mt-0.5 ${t.text}`}>
+                    {modal.entry ? 'Editar entrada' : 'Nova entrada'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                {/* AI Suggest button */}
+                {isAdmin && (
+                  <button
+                    onClick={handleAISuggest}
+                    disabled={aiLoading}
+                    title="Gerar sugestão com IA"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50"
+                    style={{
+                      borderColor: '#6366f1',
+                      color: '#6366f1',
+                      backgroundColor: isDark ? 'transparent' : '#eef2ff',
+                    }}
+                  >
+                    {aiLoading ? '⏳ Gerando…' : '✨ Sugerir'}
+                  </button>
+                )}
+
                 {/* Pilar toggle */}
                 {isAdmin && (
                   <button
@@ -605,6 +921,28 @@ export default function CalendarView({
               </div>
             </div>
 
+            {/* Tab bar — only for existing entries */}
+            {modal.entry && isAdmin && (
+              <div className="flex px-6" style={{ borderTop: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}` }}>
+                {[
+                  { key: 'planejado',  label: '📋 Planejado' },
+                  { key: 'resultados', label: '📊 Resultados' },
+                ].map(tab => (
+                  <button key={tab.key} onClick={() => setModalTab(tab.key)}
+                    className="px-4 py-2.5 text-xs font-semibold transition-all border-b-2"
+                    style={modalTab === tab.key
+                      ? { borderBottomColor: brandColor, color: brandColor }
+                      : { borderBottomColor: 'transparent', color: isDark ? '#555568' : '#9ca3af' }
+                    }>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+            {/* ── PLANEJADO TAB ── */}
+            {(!modal.entry || !isAdmin || modalTab === 'planejado') && (
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {modalError && (
                 <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs">{modalError}</div>
@@ -642,6 +980,10 @@ export default function CalendarView({
                     <MInput isAdmin={isAdmin} value={form.preheader} placeholder="Texto de preview"
                       onChange={v => setForm(f => ({ ...f, preheader: v }))} t={t} brandColor={brandColor} />
                   </MField>
+                  <MField label="Horário de Envio" t={t}>
+                    <MInput isAdmin={isAdmin} value={form.horario} placeholder="Ex: 09:00, 14:30"
+                      onChange={v => setForm(f => ({ ...f, horario: v }))} t={t} brandColor={brandColor} />
+                  </MField>
                 </>
               )}
 
@@ -674,7 +1016,7 @@ export default function CalendarView({
                         ))}
                       </div>
                     ) : (
-                      <p className={`text-sm ${t.text} capitalize`}>{form.tipo_template || '—'}</p>
+                      <p className={`text-sm ${t.text} capitalize`}>{form.tipo_template || ''}</p>
                     )}
                   </MField>
 
@@ -780,33 +1122,124 @@ export default function CalendarView({
                 ) : (
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_CONFIG[form.status]?.color }} />
-                    <span className={`text-sm ${t.text}`}>{STATUS_CONFIG[form.status]?.label || '—'}</span>
+                    <span className={`text-sm ${t.text}`}>{STATUS_CONFIG[form.status]?.label || ''}</span>
                   </div>
                 )}
               </MField>
             </div>
+            )} {/* end PLANEJADO tab */}
 
-            {isAdmin ? (
-              <div className={`flex items-center justify-between px-6 py-4 border-t ${t.border}`}>
+            {/* ── RESULTADOS TAB ── */}
+            {modal.entry && isAdmin && modalTab === 'resultados' && (
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: isDark ? '#0a0f1a' : '#f9fafb', borderColor: isDark ? '#1f2937' : '#e5e7eb' }}>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#555568' }}>Campanha</p>
+                  <p className="text-white text-sm font-semibold">{modal.entry.tema || modal.entry.descricao || modal.date}</p>
+                  {modal.entry.segmentacao && <p className="text-[11px] mt-0.5" style={{ color: '#555568' }}>{modal.entry.segmentacao}</p>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {RESULT_FIELDS.map(f => (
+                    <div key={f.key}>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: isDark ? '#444455' : '#9ca3af' }}>
+                        {f.label}
+                        {f.type === 'pct' && ' (%)'}
+                        {f.type === 'brl' && ' (R$)'}
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={result[f.key]}
+                        onChange={e => setResult(r => ({ ...r, [f.key]: e.target.value }))}
+                        placeholder={f.placeholder}
+                        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all ${t.inputCls}`}
+                        onFocus={e => { e.target.style.borderColor = brandColor; e.target.style.boxShadow = `0 0 0 3px ${brandColor}25` }}
+                        onBlur={e => { e.target.style.borderColor = ''; e.target.style.boxShadow = '' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <div>
-                  {modal.entry?.id && (
-                    <button onClick={handleDelete} disabled={deleting}
-                      className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors disabled:opacity-50">
-                      {deleting ? 'Excluindo…' : 'Excluir'}
-                    </button>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: isDark ? '#444455' : '#9ca3af' }}>
+                    Print / Print URL
+                  </label>
+                  <input
+                    type="text"
+                    value={result.res_print_url}
+                    onChange={e => setResult(r => ({ ...r, res_print_url: e.target.value }))}
+                    placeholder="https://… (URL do print de resultados)"
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all ${t.inputCls}`}
+                    onFocus={e => { e.target.style.borderColor = brandColor; e.target.style.boxShadow = `0 0 0 3px ${brandColor}25` }}
+                    onBlur={e => { e.target.style.borderColor = ''; e.target.style.boxShadow = '' }}
+                  />
+                  {result.res_print_url && (
+                    <div className="mt-2 rounded-lg overflow-hidden border" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
+                      <img src={result.res_print_url} alt="Print" className="w-full object-contain max-h-48"
+                        onError={e => { e.target.style.display = 'none' }} />
+                    </div>
                   )}
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={closeModal}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${t.btnSecondary}`}>
-                    Cancelar
-                  </button>
-                  <button onClick={handleSave} disabled={saving}
-                    className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                    style={{ backgroundColor: brandColor }}>
-                    {saving ? 'Salvando…' : 'Salvar'}
-                  </button>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: isDark ? '#444455' : '#9ca3af' }}>
+                    Observações
+                  </label>
+                  <textarea
+                    value={result.res_notas}
+                    onChange={e => setResult(r => ({ ...r, res_notas: e.target.value }))}
+                    rows={2} placeholder="Notas sobre os resultados…"
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all resize-none ${t.inputCls}`}
+                    onFocus={e => { e.target.style.borderColor = brandColor; e.target.style.boxShadow = `0 0 0 3px ${brandColor}25` }}
+                    onBlur={e => { e.target.style.borderColor = ''; e.target.style.boxShadow = '' }}
+                  />
                 </div>
+              </div>
+            )}
+
+            {/* ── FOOTER ── */}
+            {isAdmin ? (
+              <div className={`flex items-center justify-between px-6 py-4 border-t ${t.border}`}>
+                {modalTab === 'planejado' ? (
+                  <>
+                    <div>
+                      {modal.entry?.id && (
+                        <button onClick={handleDelete} disabled={deleting}
+                          className="text-red-500 hover:text-red-400 text-sm font-medium transition-colors disabled:opacity-50">
+                          {deleting ? 'Excluindo…' : 'Excluir'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={closeModal}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${t.btnSecondary}`}>
+                        Cancelar
+                      </button>
+                      <button onClick={handleSave} disabled={saving}
+                        className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                        style={{ backgroundColor: brandColor }}>
+                        {saving ? 'Salvando…' : 'Salvar'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      {resSaved && <span className="text-xs text-emerald-500 font-semibold">✓ Resultados salvos!</span>}
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={closeModal}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${t.btnSecondary}`}>
+                        Fechar
+                      </button>
+                      <button onClick={handleSaveResult} disabled={resSaving}
+                        className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                        style={{ backgroundColor: brandColor }}>
+                        {resSaving ? 'Salvando…' : 'Salvar Resultados'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className={`px-6 py-4 border-t ${t.border}`}>
@@ -936,6 +1369,7 @@ function Cell({ rowKey, entry, channel, isAdmin, brandColor, t, isDark }) {
     case 'segmentacao':   value = entry.segmentacao;  break
     case 'tema':          value = entry.tema;          break
     case 'descricao':     value = entry.descricao;     break
+    case 'horario':       value = channel === 'email' ? entry.horario   : null; break
     case 'assunto':       value = channel === 'email' ? entry.assunto   : null; break
     case 'preheader':     value = channel === 'email' ? entry.preheader : null; break
     case 'link_copy':     value = entry.link_copy;     break
@@ -978,7 +1412,7 @@ function MField({ label, children, t }) {
 
 function MInput({ isAdmin, value, onChange, placeholder, t, brandColor }) {
   if (!isAdmin) return (
-    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${t.text}`}>{value || '—'}</p>
+    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${t.text}`}>{value || ''}</p>
   )
   return (
     <input type="text" value={value} placeholder={placeholder}
@@ -998,7 +1432,7 @@ function MInput({ isAdmin, value, onChange, placeholder, t, brandColor }) {
 
 function MTextarea({ isAdmin, value, onChange, placeholder, rows, t, brandColor }) {
   if (!isAdmin) return (
-    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${t.text}`}>{value || '—'}</p>
+    <p className={`text-sm leading-relaxed whitespace-pre-wrap ${t.text}`}>{value || ''}</p>
   )
   return (
     <textarea value={value} placeholder={placeholder} rows={rows}

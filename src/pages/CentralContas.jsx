@@ -149,8 +149,8 @@ function ContasContent() {
 
       {/* Modal */}
       {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
-          <div className="rounded-2xl border w-full max-w-lg max-h-[90vh] flex flex-col" style={{ backgroundColor: '#17171f', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-lg max-h-[90vh] flex flex-col modal-panel" style={{ backgroundColor: '#17171f', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#2a2a38' }}>
               <p className="text-white font-bold">{modal?.id ? 'Editar conta' : 'Nova conta'}</p>
               <button onClick={() => setModal(null)} className="text-[#555568] hover:text-white text-xl">×</button>
@@ -221,5 +221,5 @@ function FL({ label, children }) { return <div><label className="block text-[10p
 function FInp({ value, onChange, placeholder, brandColor }) { return <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none" style={{ backgroundColor: '#0c0c10', border: '1px solid #2a2a38', color: '#fff' }} onFocus={e => { e.target.style.borderColor = brandColor }} onBlur={e => { e.target.style.borderColor = '#2a2a38' }} /> }
 
 export default function CentralContas() {
-  return <AppLayout module="contas"><ContasContent /></AppLayout>
+  return <ContasContent />
 }

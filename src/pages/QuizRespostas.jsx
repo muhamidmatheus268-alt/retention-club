@@ -118,7 +118,7 @@ export default function QuizRespostas() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-white text-sm">{r.empresa || '—'}</span>
+                        <span className="font-semibold text-white text-sm">{r.empresa || ''}</span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                           style={{ backgroundColor: r.tem_crm === 'sim' ? '#22c55e22' : '#3b82f622', color: r.tem_crm === 'sim' ? '#22c55e' : '#3b82f6' }}>
                           {r.tem_crm === 'sim' ? 'Tem CRM' : 'Sem CRM'}

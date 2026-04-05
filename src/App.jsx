@@ -1,10 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AppLayout from './layouts/AppLayout'
 import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminCalendar from './pages/AdminCalendar'
 import ClientCalendar from './pages/ClientCalendar'
+import ClientPortal from './pages/ClientPortal'
 import Diagnostico from './pages/Diagnostico'
 import Automacoes from './pages/Automacoes'
 import Relatorios from './pages/Relatorios'
@@ -16,15 +18,55 @@ import Pesquisas from './pages/Pesquisas'
 import ResetPassword from './pages/ResetPassword'
 import QuizPage from './pages/QuizPage'
 import QuizRespostas from './pages/QuizRespostas'
+import Cerebro from './pages/Cerebro'
+import GestaoUsuarios from './pages/GestaoUsuarios'
 
+/* Smart root redirect based on role */
 function RootRedirect() {
-  const { session, loading } = useAuth()
+  const { session, loading, role } = useAuth()
   if (loading) return null
-  return <Navigate to={session ? '/admin' : '/login'} replace />
+  if (!session) return <Navigate to="/login" replace />
+  if (role === 'cliente') return <Navigate to="/cliente" replace />
+  return <Navigate to="/admin" replace />
 }
 
-function P({ children }) {
-  return <ProtectedRoute>{children}</ProtectedRoute>
+/* Admin/Analista only guard */
+function A({ children }) {
+  return (
+    <ProtectedRoute roles={['admin', 'analista']}>
+      {children}
+    </ProtectedRoute>
+  )
+}
+
+/* Admin only guard */
+function AdminOnly({ children }) {
+  return (
+    <ProtectedRoute roles={['admin']}>
+      {children}
+    </ProtectedRoute>
+  )
+}
+
+/* Cliente only guard */
+function C({ children }) {
+  return (
+    <ProtectedRoute roles={['cliente']}>
+      {children}
+    </ProtectedRoute>
+  )
+}
+
+/* Persistent shell — mounts ONCE, only Outlet content swaps on navigation */
+function ModuleShell() {
+  const { pathname } = useLocation()
+  const module = pathname.split('/')[2] || ''
+  const fullHeight = module === 'calendar'
+  return (
+    <AppLayout module={module} fullHeight={fullHeight}>
+      <Outlet />
+    </AppLayout>
+  )
 }
 
 export default function App() {
@@ -32,22 +74,35 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/admin" element={<P><AdminDashboard /></P>} />
-          <Route path="/admin/calendar/:slug"       element={<P><AdminCalendar /></P>} />
-          <Route path="/admin/diagnostico/:slug"    element={<P><Diagnostico /></P>} />
-          <Route path="/admin/automacoes/:slug"     element={<P><Automacoes /></P>} />
-          <Route path="/admin/relatorios/:slug"     element={<P><Relatorios /></P>} />
-          <Route path="/admin/projecao/:slug"       element={<P><Projecao /></P>} />
-          <Route path="/admin/base/:slug"           element={<P><ControleBase /></P>} />
-          <Route path="/admin/acompanhamento/:slug" element={<P><Acompanhamento /></P>} />
-          <Route path="/admin/contas/:slug"         element={<P><CentralContas /></P>} />
-          <Route path="/admin/pesquisas/:slug"      element={<P><Pesquisas /></P>} />
-          <Route path="/calendar/:slug" element={<ClientCalendar />} />
-          <Route path="/quiz" element={<QuizPage />} />
-          <Route path="/admin/quiz-respostas" element={<P><QuizRespostas /></P>} />
+          {/* Public */}
+          <Route path="/"                element={<RootRedirect />} />
+          <Route path="/login"           element={<Login />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
+          <Route path="/calendar/:slug"  element={<ClientCalendar />} />
+          <Route path="/quiz"            element={<QuizPage />} />
+
+          {/* Cliente portal */}
+          <Route path="/cliente" element={<C><ClientPortal /></C>} />
+
+          {/* Admin — standalone pages */}
+          <Route path="/admin"                    element={<A><AdminDashboard /></A>} />
+          <Route path="/admin/quiz-respostas"     element={<A><QuizRespostas /></A>} />
+          <Route path="/admin/usuarios"           element={<AdminOnly><GestaoUsuarios /></AdminOnly>} />
+
+          {/* Admin — persistent layout (sidebar never remounts on navigation) */}
+          <Route element={<A><ModuleShell /></A>}>
+            <Route path="/admin/calendar/:slug"       element={<AdminCalendar />} />
+            <Route path="/admin/diagnostico/:slug"    element={<Diagnostico />} />
+            <Route path="/admin/automacoes/:slug"     element={<Automacoes />} />
+            <Route path="/admin/relatorios/:slug"     element={<Relatorios />} />
+            <Route path="/admin/projecao/:slug"       element={<Projecao />} />
+            <Route path="/admin/base/:slug"           element={<ControleBase />} />
+            <Route path="/admin/acompanhamento/:slug" element={<Acompanhamento />} />
+            <Route path="/admin/contas/:slug"         element={<CentralContas />} />
+            <Route path="/admin/pesquisas/:slug"      element={<Pesquisas />} />
+            <Route path="/admin/cerebro/:slug"        element={<Cerebro />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

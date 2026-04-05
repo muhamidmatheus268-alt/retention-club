@@ -111,11 +111,11 @@ function PesqContent() {
       })()}
 
       {/* Filter */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ backgroundColor: '#0c0c10', border: '1px solid #1e1e2a' }}>
         {['todos', ...TIPO_OPTS.map(t => t.key)].map(k => (
           <button key={k} onClick={() => setFilter(k)}
-            className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
-            style={filter === k ? { backgroundColor: brandColor, color: '#fff' } : { backgroundColor: '#17171f', color: '#6b6b80', border: '1px solid #2a2a38' }}>
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={filter === k ? { backgroundColor: brandColor, color: '#fff' } : { color: '#555568' }}>
             {k === 'todos' ? 'Todas' : TIPO_OPTS.find(t => t.key === k)?.label}
           </button>
         ))}
@@ -186,8 +186,8 @@ function PesqContent() {
 
       {/* Modal */}
       {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
-          <div className="rounded-2xl border w-full max-w-xl max-h-[90vh] flex flex-col" style={{ backgroundColor: '#17171f', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-xl max-h-[90vh] flex flex-col modal-panel" style={{ backgroundColor: '#17171f', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#2a2a38' }}>
               <p className="text-white font-bold">{modal?.id ? 'Editar pesquisa' : 'Nova pesquisa'}</p>
               <button onClick={() => setModal(null)} className="text-[#555568] hover:text-white text-xl">×</button>
@@ -277,5 +277,5 @@ function FInp({ value, onChange, placeholder, brandColor }) { return <input type
 function FNum({ value, onChange, placeholder, brandColor }) { return <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none" style={{ backgroundColor: '#0c0c10', border: '1px solid #2a2a38', color: '#fff' }} onFocus={e => { e.target.style.borderColor = brandColor }} onBlur={e => { e.target.style.borderColor = '#2a2a38' }} /> }
 
 export default function Pesquisas() {
-  return <AppLayout module="pesquisas"><PesqContent /></AppLayout>
+  return <PesqContent />
 }

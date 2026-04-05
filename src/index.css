@@ -11,3 +11,103 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sa
   text-align: left;
   border: none;
 }
+
+/* ── Smooth everything ── */
+*, *::before, *::after {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, a, [role="button"] {
+  transition: background-color 120ms ease, color 120ms ease,
+              border-color 120ms ease, box-shadow 120ms ease,
+              opacity 120ms ease, transform 100ms ease;
+  cursor: pointer;
+}
+
+button:active, [role="button"]:active {
+  transform: scale(0.96);
+}
+
+/* nav buttons shouldn't squish */
+aside button:active {
+  transform: scale(0.97);
+}
+
+/* ── Modal slide-up ── */
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal-backdrop {
+  animation: backdropIn 150ms ease both;
+}
+
+.modal-panel {
+  animation: modalIn 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Smooth scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a38; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a50; }
+
+/* ── Input/select focus ── */
+input, textarea, select {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+/* ── Dropdown slide-down ── */
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.drop-enter {
+  animation: dropIn 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+.animate-pulse {
+  background: linear-gradient(90deg, #17171f 25%, #1e1e2a 50%, #17171f 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Slide-up for cards/panels ── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Focus ring (keyboard nav) ── */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Select native dark ── */
+select option {
+  background-color: #17171f;
+  color: #fff;
+}
+
+/* ── Link reset ── */
+a { text-decoration: none; color: inherit; }

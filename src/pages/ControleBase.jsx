@@ -6,8 +6,8 @@ import { useClient } from '../contexts/ClientContext'
 const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const S = { bg: '#13131f', border: '#1e1e2a', input: '#0c0c10', ib: '#2a2a38', muted: '#555568', faint: '#444455' }
 
-function fmtInt(v) { if (v == null || v === '') return '—'; return Number(v).toLocaleString('pt-BR') }
-function fmtPct(v) { if (v == null || v === '') return '—'; return `${Number(v).toFixed(1)}%` }
+function fmtInt(v) { if (v == null || v === '') return ''; return Number(v).toLocaleString('pt-BR') }
+function fmtPct(v) { if (v == null || v === '') return ''; return `${Number(v).toFixed(1)}%` }
 
 const METRICS = [
   { key: 'base_total',        label: 'Base Total',           tip: '' },
@@ -113,7 +113,7 @@ function BaseContent() {
                 {m.label}{m.tip ? <span className="font-normal normal-case ml-1" style={{ color: S.faint }}>· {m.tip}</span> : ''}
               </label>
               <input type="number" value={form[m.key]} onChange={e => setForm(f => ({ ...f, [m.key]: e.target.value }))}
-                placeholder="—" className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none transition-all"
+                placeholder="" className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none transition-all"
                 style={{ backgroundColor: S.input, border: `1px solid ${S.ib}`, color: '#fff' }}
                 onFocus={e => { e.target.style.borderColor = brandColor; e.target.style.boxShadow = `0 0 0 3px ${brandColor}18` }}
                 onBlur={e => { e.target.style.borderColor = S.ib; e.target.style.boxShadow = '' }}
@@ -173,5 +173,5 @@ function Sel({ value, onChange, children }) {
 }
 
 export default function ControleBase() {
-  return <AppLayout module="base"><BaseContent /></AppLayout>
+  return <BaseContent />
 }

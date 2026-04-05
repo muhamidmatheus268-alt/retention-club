@@ -9,5 +9,5 @@ function CalendarContent() {
 }
 
 export default function AdminCalendar() {
-  return <AppLayout module="calendar" fullHeight><CalendarContent /></AppLayout>
+  return <CalendarContent />
 }

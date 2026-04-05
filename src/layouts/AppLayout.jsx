@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ClientProvider, useClient } from '../contexts/ClientContext'
 
+function BrainIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke={color} strokeWidth="1.4"/><path d="M5.5 7c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5M8 3V2M8 12v2M5 10.5l-1.5 1M11 10.5l1.5 1" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg> }
+
 const MODULES = [
   { key: 'calendar',       label: 'Calendário',        path: 'calendar',       Icon: CalIcon },
+  { key: 'cerebro',        label: 'Cérebro IA',        path: 'cerebro',        Icon: BrainIcon },
   { key: 'diagnostico',    label: 'Diagnóstico',       path: 'diagnostico',    Icon: DiagIcon },
   { key: 'automacoes',     label: 'Automações',        path: 'automacoes',     Icon: AutoIcon },
   { key: 'relatorios',     label: 'Relatórios',        path: 'relatorios',     Icon: RelIcon },
@@ -29,6 +32,7 @@ export default function AppLayout({ children, module: activeModule, fullHeight =
 function AppShell({ children, activeModule, fullHeight }) {
   const { slug } = useParams()
   const navigate  = useNavigate()
+  const location  = useLocation()
   const { signOut } = useAuth()
   const { client, brandColor } = useClient()
   const [clients, setClients]  = useState([])
@@ -74,7 +78,7 @@ function AppShell({ children, activeModule, fullHeight }) {
           </button>
 
           {dropOpen && (
-            <div className="absolute left-3 right-3 top-full mt-1 rounded-xl border py-1.5 z-50 shadow-2xl"
+            <div className="drop-enter absolute left-3 right-3 top-full mt-1 rounded-xl border py-1.5 z-50 shadow-2xl"
               style={{ backgroundColor: '#17171f', borderColor: '#2a2a38' }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#444455] px-3 mb-1.5">Carteira</p>
               <div className="max-h-48 overflow-y-auto">
