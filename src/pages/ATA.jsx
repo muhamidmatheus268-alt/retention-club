@@ -28,6 +28,319 @@ function formatDate(iso) {
   return `${d}/${m}/${y}`
 }
 
+// ─── DOCX extractor (no deps — reads ZIP binary natively) ────────────────────
+async function extractDocxText(file) {
+  const buffer = await file.arrayBuffer()
+  const bytes  = new Uint8Array(buffer)
+  const target = 'word/document.xml'
+
+  for (let i = 0; i < bytes.length - 30; i++) {
+    if (bytes[i] !== 0x50 || bytes[i+1] !== 0x4B || bytes[i+2] !== 0x03 || bytes[i+3] !== 0x04) continue
+    const fnLen    = bytes[i+26] | (bytes[i+27] << 8)
+    const exLen    = bytes[i+28] | (bytes[i+29] << 8)
+    const filename = new TextDecoder().decode(bytes.slice(i+30, i+30+fnLen))
+    if (filename !== target) continue
+
+    const method   = bytes[i+8] | (bytes[i+9] << 8)
+    const cSize    = bytes[i+18] | (bytes[i+19] << 8) | (bytes[i+20] << 16) | (bytes[i+21] << 24)
+    const dataStart = i + 30 + fnLen + exLen
+    const compressed = bytes.slice(dataStart, dataStart + cSize)
+
+    let xml
+    if (method === 0) {
+      xml = new TextDecoder().decode(compressed)
+    } else {
+      const ds = new DecompressionStream('deflate-raw')
+      const w = ds.writable.getWriter()
+      w.write(compressed); w.close()
+      const r = ds.readable.getReader()
+      const chunks = []
+      for (;;) { const { done, value } = await r.read(); if (done) break; chunks.push(value) }
+      const total = chunks.reduce((n, c) => n + c.length, 0)
+      const out = new Uint8Array(total)
+      let off = 0; for (const c of chunks) { out.set(c, off); off += c.length }
+      xml = new TextDecoder().decode(out)
+    }
+
+    // Extract <w:t> tag content (preserves word spacing)
+    const matches = [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
+    return matches.map(m => m[1]).join(' ').replace(/\s+/g, ' ').trim()
+  }
+  throw new Error('word/document.xml não encontrado')
+}
+
+// ─── AI parser — reads raw ATA text and returns structured JSON ───────────────
+async function parseAtaWithAI(rawText, clientName) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) return null
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 1800,
+      messages: [{
+        role: 'user',
+        content: `Você extrai informações de atas de reunião em português brasileiro.
+
+Cliente: ${clientName || 'desconhecido'}
+
+Texto da ata:
+${rawText.substring(0, 4000)}
+
+Retorne APENAS este JSON válido, sem texto adicional:
+{
+  "titulo": "título completo da reunião",
+  "data_reuniao": "YYYY-MM-DD",
+  "participantes": "nomes separados por vírgula",
+  "pauta": "contexto, escopo e pontos discutidos em texto corrido",
+  "decisoes": "decisões tomadas, uma por linha com •",
+  "acoes": [
+    { "descricao": "tarefa", "responsavel": "nome", "prazo": "YYYY-MM-DD", "status": "pendente" }
+  ]
+}`,
+      }],
+    }),
+  })
+
+  if (!res.ok) return null
+  const data = await res.json()
+  const text = data.content?.[0]?.text || ''
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try { return JSON.parse(match[0]) } catch { return null }
+}
+
+// ─── Client matcher — compares filename + text against client list ─────────────
+function matchClient(filename, rawText, clients) {
+  const haystack = (filename + ' ' + rawText.substring(0, 300)).toLowerCase()
+  // Sort by name length descending to prefer more specific matches
+  const sorted = [...clients].sort((a, b) => b.name.length - a.name.length)
+  for (const c of sorted) {
+    if (haystack.includes(c.slug.toLowerCase())) return c
+    const words = c.name.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+    if (words.length && words.every(w => haystack.includes(w))) return c
+  }
+  return null
+}
+
+// ─── Sync Panel ───────────────────────────────────────────────────────────────
+function SyncPanel({ clients, importedFiles, brandColor, onImport, onClose }) {
+  const [step, setStep]         = useState('idle') // idle | scanning | preview | importing | done
+  const [items, setItems]       = useState([])
+  const [error, setError]       = useState('')
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+
+  async function handleSelectFolder() {
+    if (!window.showDirectoryPicker) {
+      setError('Seu navegador não suporta seleção de pasta. Use Chrome ou Edge.')
+      return
+    }
+    setError('')
+    try {
+      const dirHandle = await window.showDirectoryPicker({ mode: 'read' })
+      setStep('scanning')
+      const found = []
+
+      for await (const entry of dirHandle.values()) {
+        if (entry.kind !== 'file') continue
+        if (!entry.name.toLowerCase().endsWith('.docx')) continue
+        if (importedFiles.includes(entry.name)) continue // already imported
+
+        const file      = await entry.getFile()
+        const rawText   = await extractDocxText(file).catch(() => '')
+        const matched   = matchClient(entry.name, rawText, clients)
+
+        found.push({
+          filename:   entry.name,
+          file,
+          rawText,
+          matched,    // client object or null
+          clientId:   matched?.id || null,
+          skip:       false,
+        })
+      }
+
+      setItems(found)
+      setStep('preview')
+    } catch (e) {
+      if (e.name !== 'AbortError') setError('Erro ao acessar pasta: ' + e.message)
+      setStep('idle')
+    }
+  }
+
+  async function handleImport() {
+    const toImport = items.filter(it => !it.skip && it.clientId)
+    setStep('importing')
+    setProgress({ done: 0, total: toImport.length })
+
+    for (let i = 0; i < toImport.length; i++) {
+      const it = toImport[i]
+      const client = clients.find(c => c.id === it.clientId)
+      const parsed = await parseAtaWithAI(it.rawText, client?.name || '')
+      if (parsed) {
+        await onImport({
+          ...parsed,
+          acoes:       (parsed.acoes || []).map(a => ({ ...a, id: uid() })),
+          client_id:   it.clientId,
+          source_file: it.filename,
+          status:      'finalizada',
+        })
+      }
+      setProgress({ done: i + 1, total: toImport.length })
+    }
+    setStep('done')
+  }
+
+  function updateItem(i, patch) {
+    setItems(p => p.map((it, idx) => idx === i ? { ...it, ...patch } : it))
+  }
+
+  const readyCount = items.filter(it => !it.skip && it.clientId).length
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+      onClick={e => { if (e.target === e.currentTarget && step !== 'importing') onClose() }}>
+      <div className="rounded-2xl border w-full max-w-2xl flex flex-col"
+        style={{ backgroundColor: S.card, borderColor: S.ib, boxShadow: '0 32px 80px rgba(0,0,0,0.8)', maxHeight: '88vh' }}>
+
+        {/* header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: S.ib }}>
+          <div>
+            <p className="text-white font-bold">Importar ATAs da pasta</p>
+            <p className="text-xs mt-0.5" style={{ color: S.muted }}>Arquivos .docx do Google Meet / Gemini</p>
+          </div>
+          {step !== 'importing' && (
+            <button onClick={onClose} className="text-[#555568] hover:text-white text-xl transition-colors">×</button>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+
+          {/* idle */}
+          {step === 'idle' && (
+            <div className="text-center py-10">
+              <p className="text-4xl mb-4">📁</p>
+              <p className="text-sm text-white font-semibold mb-1">Selecione a pasta com as ATAs</p>
+              <p className="text-xs mb-6" style={{ color: S.muted }}>
+                Ex: Downloads\Claude\Tarefas — arquivos já importados serão ignorados
+              </p>
+              {error && <p className="text-red-400 text-xs mb-4">{error}</p>}
+              <button onClick={handleSelectFolder}
+                className="px-6 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: brandColor }}>
+                📂 Selecionar pasta
+              </button>
+            </div>
+          )}
+
+          {/* scanning */}
+          {step === 'scanning' && (
+            <div className="text-center py-12">
+              <svg className="animate-spin mx-auto mb-4" width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke={brandColor} strokeWidth="2.5" strokeDasharray="40" strokeDashoffset="10"/>
+              </svg>
+              <p className="text-sm text-white">Lendo arquivos da pasta…</p>
+            </div>
+          )}
+
+          {/* preview */}
+          {step === 'preview' && (
+            <div>
+              {items.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-2xl mb-2">✓</p>
+                  <p className="text-sm text-white">Nenhum arquivo novo encontrado</p>
+                  <p className="text-xs mt-1" style={{ color: S.muted }}>Todos os arquivos já foram importados anteriormente</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: S.faint }}>
+                    {items.length} arquivo{items.length !== 1 ? 's' : ''} encontrado{items.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-2">
+                    {items.map((it, i) => (
+                      <div key={i} className="rounded-xl border p-4 transition-all"
+                        style={{ borderColor: it.skip ? S.faint : it.clientId ? brandColor + '40' : '#f59e0b40', backgroundColor: S.panel, opacity: it.skip ? 0.5 : 1 }}>
+                        <div className="flex items-start gap-3">
+                          <input type="checkbox" checked={!it.skip} onChange={e => updateItem(i, { skip: !e.target.checked })}
+                            className="mt-1 shrink-0 accent-orange-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-white font-medium truncate">{it.filename}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: S.faint }}>Cliente:</span>
+                              <select
+                                value={it.clientId || ''}
+                                onChange={e => updateItem(i, { clientId: e.target.value || null })}
+                                className="flex-1 text-xs rounded-lg px-2 py-1 focus:outline-none"
+                                style={{ backgroundColor: S.input, border: `1px solid ${S.ib}`, color: it.clientId ? '#fff' : '#f59e0b' }}>
+                                <option value="">⚠ Selecionar cliente manualmente</option>
+                                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* importing */}
+          {step === 'importing' && (
+            <div className="text-center py-10">
+              <svg className="animate-spin mx-auto mb-4" width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke={brandColor} strokeWidth="2.5" strokeDasharray="40" strokeDashoffset="10"/>
+              </svg>
+              <p className="text-sm text-white mb-3">Processando com IA… {progress.done}/{progress.total}</p>
+              <div className="h-1.5 rounded-full overflow-hidden mx-auto max-w-xs" style={{ backgroundColor: S.ib }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${progress.total ? (progress.done / progress.total * 100) : 0}%`, backgroundColor: brandColor }} />
+              </div>
+            </div>
+          )}
+
+          {/* done */}
+          {step === 'done' && (
+            <div className="text-center py-10">
+              <p className="text-4xl mb-3">✅</p>
+              <p className="text-sm text-white font-semibold">{progress.total} ATA{progress.total !== 1 ? 's' : ''} importada{progress.total !== 1 ? 's' : ''} com sucesso!</p>
+              <p className="text-xs mt-1" style={{ color: S.muted }}>As ATAs aparecem na lista do cliente correspondente</p>
+            </div>
+          )}
+        </div>
+
+        {/* footer */}
+        {(step === 'preview' || step === 'done') && (
+          <div className="flex justify-end gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: S.ib }}>
+            <button onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm border transition-colors"
+              style={{ borderColor: S.ib, color: S.muted }}>
+              {step === 'done' ? 'Fechar' : 'Cancelar'}
+            </button>
+            {step === 'preview' && items.length > 0 && readyCount > 0 && (
+              <button onClick={handleImport}
+                className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: brandColor }}>
+                ✨ Importar {readyCount} ATA{readyCount !== 1 ? 's' : ''} com IA
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── AI Agent ────────────────────────────────────────────────────────────────
 async function runAgentCOO(ata) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
@@ -476,6 +789,12 @@ export default function ATA() {
   const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState(null)
   const [creating, setCreating] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
+  const [allClients, setAllClients] = useState([])
+
+  useEffect(() => {
+    supabase.from('clients').select('id,name,slug').then(({ data }) => setAllClients(data || []))
+  }, [])
 
   const fetchAtas = useCallback(async () => {
     if (!client) return
@@ -491,7 +810,7 @@ export default function ATA() {
   useEffect(() => { fetchAtas() }, [fetchAtas])
 
   async function handleSave(form) {
-    const payload = { ...form, client_id: client.id }
+    const payload = { ...form, client_id: form.client_id || client?.id }
     if (form.id) {
       await supabase.from('atas').update(payload).eq('id', form.id)
     } else {
@@ -500,6 +819,12 @@ export default function ATA() {
     }
     await fetchAtas()
   }
+
+  async function handleSyncImport(ataData) {
+    await supabase.from('atas').insert(ataData)
+  }
+
+  const importedFiles = atas.map(a => a.source_file).filter(Boolean)
 
   async function handleDelete(id) {
     if (!window.confirm('Excluir esta ATA?')) return
@@ -533,9 +858,16 @@ export default function ATA() {
         <div className="px-5 py-4 border-b shrink-0" style={{ borderColor: S.border }}>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-sm font-bold text-white">ATAs</h2>
-            <button onClick={handleNew}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm transition-all hover:opacity-80"
-              style={{ backgroundColor: brandColor }}>+</button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setSyncOpen(true)} title="Importar da pasta"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all hover:opacity-80"
+                style={{ backgroundColor: S.ib, color: S.muted }}>
+                📁
+              </button>
+              <button onClick={handleNew}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-sm transition-all hover:opacity-80"
+                style={{ backgroundColor: brandColor }}>+</button>
+            </div>
           </div>
           <p className="text-[11px]" style={{ color: S.muted }}>
             {atas.length} reunião{atas.length !== 1 ? 'ões' : ''}
@@ -566,6 +898,17 @@ export default function ATA() {
           ))}
         </div>
       </aside>
+
+      {/* ── Sync Panel ── */}
+      {syncOpen && (
+        <SyncPanel
+          clients={allClients}
+          importedFiles={importedFiles}
+          brandColor={brandColor}
+          onImport={async (ataData) => { await handleSyncImport(ataData) }}
+          onClose={() => { setSyncOpen(false); fetchAtas() }}
+        />
+      )}
 
       {/* ── Editor ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
