@@ -27,24 +27,24 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // onAuthStateChange fires for the initial session too — use only this to avoid double fetch
+    let profileFetched = false
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      if (!profileFetched) {
+        profileFetched = true
+        fetchProfile(session?.user?.id)
+      }
+    })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      fetchProfile(session?.user?.id)
-    })
-
-    // Kick off initial session check in case onAuthStateChange is slow
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(s => {
-        // only update if still undefined (i.e. onAuthStateChange hasn't fired yet)
-        if (s === undefined) {
-          setUser(session?.user ?? null)
-          fetchProfile(session?.user?.id)
-          return session
-        }
-        return s
-      })
+      if (!profileFetched) {
+        profileFetched = true
+        fetchProfile(session?.user?.id)
+      }
     })
 
     return () => subscription.unsubscribe()
