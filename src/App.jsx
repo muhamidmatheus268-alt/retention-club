@@ -20,6 +20,7 @@ import QuizPage from './pages/QuizPage'
 import QuizRespostas from './pages/QuizRespostas'
 import Cerebro from './pages/Cerebro'
 import GestaoUsuarios from './pages/GestaoUsuarios'
+import BancoImagens from './pages/BancoImagens'
 
 /* Smart root redirect based on role */
 function RootRedirect() {
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/admin/contas/:slug"         element={<CentralContas />} />
             <Route path="/admin/pesquisas/:slug"      element={<Pesquisas />} />
             <Route path="/admin/cerebro/:slug"        element={<Cerebro />} />
+            <Route path="/admin/imagens/:slug"        element={<BancoImagens />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

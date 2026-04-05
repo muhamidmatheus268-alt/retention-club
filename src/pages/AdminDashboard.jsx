@@ -10,6 +10,7 @@ const MODULES_SHORT = [
   { key: 'diagnostico',    label: 'Diagnóstico'  },
   { key: 'relatorios',     label: 'Relatórios'   },
   { key: 'projecao',       label: 'Projeção'     },
+  { key: 'imagens',        label: 'Imagens'      },
 ]
 
 const S = {

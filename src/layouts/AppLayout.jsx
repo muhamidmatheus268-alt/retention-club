@@ -17,6 +17,7 @@ const MODULES = [
   { key: 'acompanhamento', label: 'Acompanhamento',    path: 'acompanhamento', Icon: AcompIcon },
   { key: 'contas',         label: 'Central de Contas', path: 'contas',         Icon: ContasIcon },
   { key: 'pesquisas',      label: 'Pesquisas',         path: 'pesquisas',      Icon: PesqIcon },
+  { key: 'imagens',        label: 'Banco de Imagens',  path: 'imagens',        Icon: ImgIcon },
 ]
 
 export default function AppLayout({ children, module: activeModule, fullHeight = false }) {
@@ -216,3 +217,4 @@ function GridIcon({ size, color }) { return <svg width={size} height={size} view
 function LogoutIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M10 8H3M3 8l2.5-2.5M3 8l2.5 2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M8 4V3a1 1 0 011-1h3a1 1 0 011 1v10a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg> }
 function FunnelIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M2 3h12l-4.5 5.5V13l-3-1.5V8.5L2 3z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ExternalIcon({ size }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M10 2h4v4M14 2L8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> }
+function ImgIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke={color} strokeWidth="1.5"/><circle cx="6" cy="7" r="1.2" fill={color}/><path d="M2 11l3-3 2.5 2.5L10 8l4 4" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> }
