@@ -255,7 +255,7 @@ export default function AdminDashboard() {
                   Nome
                 </label>
                 <input ref={inputRef} type="text" value={newName} onChange={e => setNewName(e.target.value)}
-                  placeholder="Ex: APEX Comunicação"
+                  placeholder="Ex: Peach Up"
                   className="w-full text-sm rounded-lg px-3 py-2.5 focus:outline-none transition-all"
                   style={{ backgroundColor: S.bg, border: `1px solid ${S.ib}`, color: '#fff' }}
                   onFocus={e => { e.target.style.borderColor = '#E8642A'; e.target.style.boxShadow = '0 0 0 3px #E8642A18' }}
