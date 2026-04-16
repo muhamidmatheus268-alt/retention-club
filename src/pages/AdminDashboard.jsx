@@ -3,6 +3,19 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+function timeGreeting() {
+  const h = new Date().getHours()
+  if (h < 5)  return 'Boa madrugada'
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function firstName(profile) {
+  if (!profile?.nome) return null
+  return profile.nome.trim().split(/\s+/)[0]
+}
+
 const MODULES_SHORT = [
   { key: 'calendar',       label: 'Calendário'         },
   { key: 'cerebro',        label: 'Cérebro IA'         },
@@ -199,7 +212,7 @@ function Stat({ value, label, accent }) {
 
 /* ─── Main page ────────────────────────────────────────────────────────── */
 export default function AdminDashboard() {
-  const { signOut, isAdmin } = useAuth()
+  const { signOut, isAdmin, profile } = useAuth()
   const navigate = useNavigate()
   const [clients, setClients]       = useState([])
   const [loading, setLoading]       = useState(true)
@@ -210,7 +223,7 @@ export default function AdminDashboard() {
   const [error, setError]           = useState('')
   const [formOpen, setFormOpen]     = useState(false)
   const [search, setSearch]         = useState('')
-  const [stats, setStats]           = useState({ posts: 0, atas: 0 })
+  const [stats, setStats]           = useState({ posts: 0, atas: 0, today: 0 })
   const [perClient, setPerClient]   = useState({}) // { [client_id]: { posts, atas } }
   const [recentSlugs, setRecentSlugs] = useState(getRecentSlugs)
   const inputRef = useRef(null)
@@ -229,10 +242,12 @@ export default function AdminDashboard() {
   async function fetchStats() {
     const now = new Date()
     const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-    const [postsRes, atasRes] = await Promise.allSettled([
+    const [postsRes, atasRes, todayRes] = await Promise.allSettled([
       supabase.from('calendar_entries').select('client_id').gte('post_date', start),
       supabase.from('atas').select('client_id'),
+      supabase.from('calendar_entries').select('id', { count: 'exact', head: true }).eq('post_date', today),
     ])
 
     /* Aggregate per-client counts */
@@ -256,6 +271,7 @@ export default function AdminDashboard() {
     setStats({
       posts: postsRes.status === 'fulfilled' ? (postsRes.value.data?.length || 0) : 0,
       atas:  atasRes.status  === 'fulfilled' ? (atasRes.value.data?.length  || 0) : 0,
+      today: todayRes.status === 'fulfilled' ? (todayRes.value.count        || 0) : 0,
     })
   }
 
@@ -333,16 +349,27 @@ export default function AdminDashboard() {
 
       <main className="max-w-4xl mx-auto px-6 py-10">
 
-        {/* ─── Page title ──────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-white">Carteira de clientes</h1>
-            <p className="text-sm mt-0.5" style={{ color: S.muted }}>
-              Selecione um cliente para acessar os módulos
+        {/* ─── Page title / greeting ───────────────────────────────────── */}
+        <div className="flex items-end justify-between mb-6 gap-6 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-white">
+              {timeGreeting()}{firstName(profile) ? `, ${firstName(profile)}` : ''} <span className="inline-block" style={{ transform: 'translateY(-1px)' }}>👋</span>
+            </h1>
+            <p className="text-sm mt-1" style={{ color: S.muted }}>
+              {stats.today > 0 ? (
+                <span>
+                  Você tem <span className="text-white font-semibold">{stats.today}</span>
+                  {' '}post{stats.today !== 1 ? 's' : ''} agendado{stats.today !== 1 ? 's' : ''} para hoje.
+                </span>
+              ) : clients.length === 0 ? (
+                'Adicione o primeiro cliente para começar.'
+              ) : (
+                'Nenhum post agendado para hoje. Bom momento para planejar a semana.'
+              )}
             </p>
           </div>
           <button onClick={() => setFormOpen(o => !o)}
-            className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+            className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity shrink-0"
             style={{ backgroundColor: '#E8642A' }}>
             {formOpen ? '× Cancelar' : '+ Novo cliente'}
           </button>

@@ -23,6 +23,7 @@ import GestaoUsuarios from './pages/GestaoUsuarios'
 import BancoImagens from './pages/BancoImagens'
 import ATA from './pages/ATA'
 import CommandPalette from './components/CommandPalette'
+import ErrorBoundary from './components/ErrorBoundary'
 
 /* Smart root redirect based on role */
 function RootRedirect() {
@@ -82,44 +83,46 @@ function ModuleShell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <GlobalCommandPalette />
-        <Routes>
-          {/* Public */}
-          <Route path="/"                element={<RootRedirect />} />
-          <Route path="/login"           element={<Login />} />
-          <Route path="/reset-password"  element={<ResetPassword />} />
-          <Route path="/calendar/:slug"  element={<ClientCalendar />} />
-          <Route path="/quiz"            element={<QuizPage />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <GlobalCommandPalette />
+          <Routes>
+            {/* Public */}
+            <Route path="/"                element={<RootRedirect />} />
+            <Route path="/login"           element={<Login />} />
+            <Route path="/reset-password"  element={<ResetPassword />} />
+            <Route path="/calendar/:slug"  element={<ClientCalendar />} />
+            <Route path="/quiz"            element={<QuizPage />} />
 
-          {/* Cliente portal */}
-          <Route path="/cliente" element={<C><ClientPortal /></C>} />
+            {/* Cliente portal */}
+            <Route path="/cliente" element={<C><ClientPortal /></C>} />
 
-          {/* Admin — standalone pages */}
-          <Route path="/admin"                    element={<A><AdminDashboard /></A>} />
-          <Route path="/admin/quiz-respostas"     element={<A><QuizRespostas /></A>} />
-          <Route path="/admin/usuarios"           element={<AdminOnly><GestaoUsuarios /></AdminOnly>} />
+            {/* Admin — standalone pages */}
+            <Route path="/admin"                    element={<A><AdminDashboard /></A>} />
+            <Route path="/admin/quiz-respostas"     element={<A><QuizRespostas /></A>} />
+            <Route path="/admin/usuarios"           element={<AdminOnly><GestaoUsuarios /></AdminOnly>} />
 
-          {/* Admin — persistent layout (sidebar never remounts on navigation) */}
-          <Route element={<A><ModuleShell /></A>}>
-            <Route path="/admin/calendar/:slug"       element={<AdminCalendar />} />
-            <Route path="/admin/diagnostico/:slug"    element={<Diagnostico />} />
-            <Route path="/admin/automacoes/:slug"     element={<Automacoes />} />
-            <Route path="/admin/relatorios/:slug"     element={<Relatorios />} />
-            <Route path="/admin/projecao/:slug"       element={<Projecao />} />
-            <Route path="/admin/base/:slug"           element={<ControleBase />} />
-            <Route path="/admin/acompanhamento/:slug" element={<Acompanhamento />} />
-            <Route path="/admin/contas/:slug"         element={<CentralContas />} />
-            <Route path="/admin/pesquisas/:slug"      element={<Pesquisas />} />
-            <Route path="/admin/cerebro/:slug"        element={<Cerebro />} />
-            <Route path="/admin/imagens/:slug"        element={<BancoImagens />} />
-            <Route path="/admin/ata/:slug"            element={<ATA />} />
-          </Route>
+            {/* Admin — persistent layout (sidebar never remounts on navigation) */}
+            <Route element={<A><ModuleShell /></A>}>
+              <Route path="/admin/calendar/:slug"       element={<AdminCalendar />} />
+              <Route path="/admin/diagnostico/:slug"    element={<Diagnostico />} />
+              <Route path="/admin/automacoes/:slug"     element={<Automacoes />} />
+              <Route path="/admin/relatorios/:slug"     element={<Relatorios />} />
+              <Route path="/admin/projecao/:slug"       element={<Projecao />} />
+              <Route path="/admin/base/:slug"           element={<ControleBase />} />
+              <Route path="/admin/acompanhamento/:slug" element={<Acompanhamento />} />
+              <Route path="/admin/contas/:slug"         element={<CentralContas />} />
+              <Route path="/admin/pesquisas/:slug"      element={<Pesquisas />} />
+              <Route path="/admin/cerebro/:slug"        element={<Cerebro />} />
+              <Route path="/admin/imagens/:slug"        element={<BancoImagens />} />
+              <Route path="/admin/ata/:slug"            element={<ATA />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
