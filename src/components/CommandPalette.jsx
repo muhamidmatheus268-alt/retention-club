@@ -148,9 +148,10 @@ export default function CommandPalette() {
 
     // Actions
     const actions = [
-      { key: 'dashboard', label: 'Painel de clientes',   kw: 'dashboard painel home', path: '/admin' },
-      { key: 'usuarios',  label: 'Gestão de usuários',   kw: 'usuarios users',        path: '/admin/usuarios' },
-      { key: 'quiz',      label: 'Funil CRM (quiz)',     kw: 'funil quiz crm',        path: '/admin/quiz-respostas' },
+      { key: 'new',       label: 'Novo cliente',         kw: 'novo cliente criar add',    path: '/admin', state: { openNew: true } },
+      { key: 'dashboard', label: 'Painel de clientes',   kw: 'dashboard painel home',     path: '/admin' },
+      { key: 'usuarios',  label: 'Gestão de usuários',   kw: 'usuarios users',            path: '/admin/usuarios' },
+      { key: 'quiz',      label: 'Funil CRM (quiz)',     kw: 'funil quiz crm',            path: '/admin/quiz-respostas' },
     ]
     for (const a of actions) {
       const s = Math.max(score(query, a.label), score(query, a.kw))
@@ -160,8 +161,8 @@ export default function CommandPalette() {
         label: a.label,
         sub: a.path,
         score: s,
-        onSelect: () => navigate(a.path),
-        color: '#10b981',
+        onSelect: () => navigate(a.path, a.state ? { state: a.state } : undefined),
+        color: a.key === 'new' ? '#E8642A' : '#10b981',
       })
     }
 

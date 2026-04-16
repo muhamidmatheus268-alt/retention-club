@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -214,6 +214,7 @@ function Stat({ value, label, accent }) {
 export default function AdminDashboard() {
   const { signOut, isAdmin, profile } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [clients, setClients]       = useState([])
   const [loading, setLoading]       = useState(true)
   const [newName, setNewName]       = useState('')
@@ -231,6 +232,15 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchClients(); fetchStats() }, [])
   useEffect(() => { if (formOpen) setTimeout(() => inputRef.current?.focus(), 50) }, [formOpen])
+
+  /* Open new-client form when navigated with state { openNew: true } (e.g. from Cmd+K) */
+  useEffect(() => {
+    if (location.state?.openNew) {
+      setFormOpen(true)
+      /* Clear the state so refresh doesn't re-trigger */
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location, navigate])
 
   /* Auto-refresh stats when tab becomes visible again */
   useEffect(() => {
