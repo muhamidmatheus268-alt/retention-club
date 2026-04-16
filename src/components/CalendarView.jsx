@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import GenerateMonthModal from './GenerateMonthModal'
 
 const CHANNELS = [
   { key: 'email',    label: 'Email' },
@@ -330,6 +331,8 @@ export default function CalendarView({
   const [result, setResult]       = useState(EMPTY_RESULT)
   const [resSaving, setResSaving] = useState(false)
   const [resSaved, setResSaved]   = useState(false)
+  const [genOpen, setGenOpen]     = useState(false)
+  const [genToast, setGenToast]   = useState('')
 
   const t = isDark ? DARK : LIGHT
   const rows = channel === 'email' ? EMAIL_ROWS
@@ -572,6 +575,21 @@ export default function CalendarView({
             >
               🏛 {pilaresCount} {pilaresCount === 1 ? 'pilar' : 'pilares'}
             </span>
+          )}
+
+          {/* Gerar mês com IA — admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setGenOpen(true)}
+              title="Gerar calendário completo com IA"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all flex items-center gap-1.5 hover:opacity-90"
+              style={{
+                background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+                boxShadow: `0 2px 8px ${brandColor}40`,
+              }}
+            >
+              ✨ Gerar mês
+            </button>
           )}
 
           {/* Theme toggle */}
@@ -855,6 +873,34 @@ export default function CalendarView({
           <span className={`text-xs ${t.textFaint}`}>Pilar / Ação Comercial</span>
         </div>
       </div>
+
+      {/* ── Gerar mês (AI) ── */}
+      {isAdmin && (
+        <GenerateMonthModal
+          open={genOpen}
+          onClose={() => setGenOpen(false)}
+          clientId={clientId}
+          channel={channel}
+          year={year}
+          month={month}
+          brandColor={brandColor}
+          onDone={(count) => {
+            fetchEntries()
+            setGenToast(`${count} entrada${count !== 1 ? 's' : ''} criada${count !== 1 ? 's' : ''} no calendário`)
+            setTimeout(() => setGenToast(''), 3500)
+          }}
+        />
+      )}
+
+      {/* Inline success toast after generation */}
+      {genToast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] px-4 py-2.5 rounded-xl border shadow-2xl flex items-center gap-2.5 slide-up"
+          style={{ backgroundColor: '#13131d', borderColor: '#2a2a38' }}>
+          <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white"
+            style={{ backgroundColor: '#10b981' }}>✓</span>
+          <span className="text-sm text-white font-medium">{genToast}</span>
+        </div>
+      )}
 
       {/* ── Modal ── */}
       {modal && (
