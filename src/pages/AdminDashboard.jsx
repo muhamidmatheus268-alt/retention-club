@@ -384,16 +384,21 @@ export default function AdminDashboard() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar cliente…"
-              className="w-full text-sm rounded-xl pl-9 pr-9 py-2.5 focus:outline-none transition-all"
+              className="w-full text-sm rounded-xl pl-9 pr-20 py-2.5 focus:outline-none transition-all"
               style={{ backgroundColor: S.card, border: `1px solid ${S.border}`, color: '#fff' }}
               onFocus={e => { e.target.style.borderColor = '#3a3a48' }}
               onBlur={e => { e.target.style.borderColor = S.border }}
             />
-            {search && (
+            {search ? (
               <button onClick={() => setSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#444455] hover:text-white transition-colors text-base leading-none">
                 ×
               </button>
+            ) : (
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none"
+                style={{ borderColor: S.ib, color: S.muted }}>
+                ⌘K
+              </kbd>
             )}
           </div>
         )}

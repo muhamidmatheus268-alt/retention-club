@@ -22,6 +22,7 @@ import Cerebro from './pages/Cerebro'
 import GestaoUsuarios from './pages/GestaoUsuarios'
 import BancoImagens from './pages/BancoImagens'
 import ATA from './pages/ATA'
+import CommandPalette from './components/CommandPalette'
 
 /* Smart root redirect based on role */
 function RootRedirect() {
@@ -30,6 +31,14 @@ function RootRedirect() {
   if (!session) return <Navigate to="/login" replace />
   if (role === 'cliente') return <Navigate to="/cliente" replace />
   return <Navigate to="/admin" replace />
+}
+
+/* Command palette only for authenticated admin/analista users */
+function GlobalCommandPalette() {
+  const { session, role } = useAuth()
+  if (!session) return null
+  if (role !== 'admin' && role !== 'analista') return null
+  return <CommandPalette />
 }
 
 /* Admin/Analista only guard */
@@ -75,6 +84,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <GlobalCommandPalette />
         <Routes>
           {/* Public */}
           <Route path="/"                element={<RootRedirect />} />
