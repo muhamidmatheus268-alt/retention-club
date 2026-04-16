@@ -4,13 +4,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 const MODULES_SHORT = [
-  { key: 'calendar',       label: 'Calendário'   },
-  { key: 'automacoes',     label: 'Automações'   },
-  { key: 'cerebro',        label: 'Cérebro IA'   },
-  { key: 'diagnostico',    label: 'Diagnóstico'  },
-  { key: 'relatorios',     label: 'Relatórios'   },
-  { key: 'projecao',       label: 'Projeção'     },
-  { key: 'imagens',        label: 'Imagens'      },
+  { key: 'calendar',       label: 'Calendário'         },
+  { key: 'cerebro',        label: 'Cérebro IA'         },
+  { key: 'diagnostico',    label: 'Diagnóstico'        },
+  { key: 'automacoes',     label: 'Automações'         },
+  { key: 'relatorios',     label: 'Relatórios'         },
+  { key: 'projecao',       label: 'Projeção'           },
+  { key: 'imagens',        label: 'Banco de Imagens'   },
+  { key: 'ata',            label: 'ATAs'               },
 ]
 
 const S = {
@@ -28,9 +29,18 @@ function generateSlug(name) {
     .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
 }
 
-/* color options for new clients */
 const COLORS = ['#E8642A','#6366f1','#10b981','#f59e0b','#ec4899','#06b6d4','#8b5cf6','#ef4444']
 
+/* ─── Helpers ─────────────────────────────────────────────────────────── */
+function getRecentSlugs() {
+  try { return JSON.parse(localStorage.getItem('rc_recent_clients') || '[]') } catch { return [] }
+}
+function pushRecentSlug(slug) {
+  const prev = getRecentSlugs().filter(s => s !== slug)
+  localStorage.setItem('rc_recent_clients', JSON.stringify([slug, ...prev].slice(0, 5)))
+}
+
+/* ─── Skeleton ─────────────────────────────────────────────────────────── */
 function SkeletonCard() {
   return (
     <div className="rounded-xl border p-5 animate-pulse" style={{ backgroundColor: S.card, borderColor: S.border }}>
@@ -41,8 +51,8 @@ function SkeletonCard() {
           <div className="h-2.5 rounded w-24" style={{ backgroundColor: S.faint }} />
         </div>
       </div>
-      <div className="flex gap-2">
-        {[80, 96, 72, 88].map((w, i) => (
+      <div className="flex gap-2 flex-wrap">
+        {[80, 96, 72, 88, 64, 80].map((w, i) => (
           <div key={i} className="h-6 rounded-md" style={{ width: w, backgroundColor: S.ib }} />
         ))}
       </div>
@@ -50,7 +60,8 @@ function SkeletonCard() {
   )
 }
 
-function ClientCard({ client, onDelete, deleting }) {
+/* ─── ClientCard ───────────────────────────────────────────────────────── */
+function ClientCard({ client, onDelete, deleting, onAccess, compact }) {
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -106,7 +117,7 @@ function ClientCard({ client, onDelete, deleting }) {
               </svg>
             </button>
             {menuOpen && (
-              <div className="drop-enter absolute right-0 top-full mt-1 rounded-xl border py-1.5 z-50 shadow-2xl min-w-[150px]"
+              <div className="drop-enter absolute right-0 top-full mt-1 rounded-xl border py-1.5 z-50 shadow-2xl min-w-[160px]"
                 style={{ backgroundColor: '#17171f', borderColor: S.ib }}>
                 <button onClick={() => { copy(); setMenuOpen(false) }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
@@ -138,6 +149,7 @@ function ClientCard({ client, onDelete, deleting }) {
         <div className="flex flex-wrap gap-1.5">
           {MODULES_SHORT.map(m => (
             <Link key={m.key} to={`/admin/${m.key}/${client.slug}`}
+              onClick={() => onAccess(client.slug)}
               className="px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all"
               style={{ borderColor: S.ib, color: S.muted, backgroundColor: 'transparent' }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = color + '18'; e.currentTarget.style.borderColor = color + '50'; e.currentTarget.style.color = '#fff' }}
@@ -151,26 +163,58 @@ function ClientCard({ client, onDelete, deleting }) {
   )
 }
 
-export default function AdminDashboard() {
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
-  const [clients, setClients]     = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [newName, setNewName]     = useState('')
-  const [newColor, setNewColor]   = useState('#E8642A')
-  const [adding, setAdding]       = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
-  const [error, setError]         = useState('')
-  const [formOpen, setFormOpen]   = useState(false)
-  const inputRef = useRef(null)
+/* ─── Stat pill ────────────────────────────────────────────────────────── */
+function Stat({ value, label, accent }) {
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border"
+      style={{ backgroundColor: S.card, borderColor: S.border }}>
+      <span className="text-lg font-bold" style={{ color: accent || '#fff' }}>{value}</span>
+      <span className="text-xs" style={{ color: S.muted }}>{label}</span>
+    </div>
+  )
+}
 
-  useEffect(() => { fetchClients() }, [])
+/* ─── Main page ────────────────────────────────────────────────────────── */
+export default function AdminDashboard() {
+  const { signOut, isAdmin } = useAuth()
+  const navigate = useNavigate()
+  const [clients, setClients]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [newName, setNewName]       = useState('')
+  const [newColor, setNewColor]     = useState('#E8642A')
+  const [adding, setAdding]         = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [error, setError]           = useState('')
+  const [formOpen, setFormOpen]     = useState(false)
+  const [search, setSearch]         = useState('')
+  const [stats, setStats]           = useState({ posts: 0, atas: 0 })
+  const [recentSlugs, setRecentSlugs] = useState(getRecentSlugs)
+  const inputRef = useRef(null)
+  const searchRef = useRef(null)
+
+  useEffect(() => { fetchClients(); fetchStats() }, [])
   useEffect(() => { if (formOpen) setTimeout(() => inputRef.current?.focus(), 50) }, [formOpen])
 
   async function fetchClients() {
     setLoading(true)
     const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
-    setClients(data || []); setLoading(false)
+    setClients(data || [])
+    setLoading(false)
+  }
+
+  async function fetchStats() {
+    const now = new Date()
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+    const [postsRes, atasRes] = await Promise.allSettled([
+      supabase.from('calendar_entries').select('id', { count: 'exact', head: true }).gte('post_date', start),
+      supabase.from('atas').select('id', { count: 'exact', head: true }),
+    ])
+
+    setStats({
+      posts: postsRes.status === 'fulfilled' ? (postsRes.value.count || 0) : 0,
+      atas:  atasRes.status  === 'fulfilled' ? (atasRes.value.count  || 0) : 0,
+    })
   }
 
   async function handleAdd(e) {
@@ -192,13 +236,32 @@ export default function AdminDashboard() {
     setDeletingId(id)
     await supabase.from('calendar_entries').delete().eq('client_id', id)
     await supabase.from('clients').delete().eq('id', id)
-    setClients(p => p.filter(c => c.id !== id)); setDeletingId(null)
+    setClients(p => p.filter(c => c.id !== id))
+    setDeletingId(null)
   }
+
+  function handleAccess(slug) {
+    pushRecentSlug(slug)
+    setRecentSlugs(getRecentSlugs())
+  }
+
+  /* Derived */
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? clients.filter(c => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q))
+    : clients
+
+  const recentClients = recentSlugs
+    .map(slug => clients.find(c => c.slug === slug))
+    .filter(Boolean)
+    .slice(0, 3)
+
+  const showRecents = !q && recentClients.length > 0
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: S.bg }}>
 
-      {/* header */}
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-6 h-12 border-b sticky top-0 z-40"
         style={{ backgroundColor: S.card, borderColor: S.border }}>
         <div className="flex items-center gap-2">
@@ -206,17 +269,16 @@ export default function AdminDashboard() {
             style={{ backgroundColor: '#E8642A' }}>R</span>
           <span className="font-bold text-sm text-white tracking-tight">Retention Club</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: S.muted }}>
-            {clients.length} cliente{clients.length !== 1 ? 's' : ''}
-          </span>
-          <button onClick={() => navigate('/admin/usuarios')}
-            className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
-            style={{ borderColor: S.ib, color: S.muted }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3a3a48' }}
-            onMouseLeave={e => { e.currentTarget.style.color = S.muted; e.currentTarget.style.borderColor = S.ib }}>
-            👥 Usuários
-          </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button onClick={() => navigate('/admin/usuarios')}
+              className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: S.ib, color: S.muted }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3a3a48' }}
+              onMouseLeave={e => { e.currentTarget.style.color = S.muted; e.currentTarget.style.borderColor = S.ib }}>
+              👥 Usuários
+            </button>
+          )}
           <button onClick={async () => { await signOut(); navigate('/login') }}
             className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
             style={{ borderColor: S.ib, color: S.muted }}
@@ -229,8 +291,8 @@ export default function AdminDashboard() {
 
       <main className="max-w-4xl mx-auto px-6 py-10">
 
-        {/* page title + add button */}
-        <div className="flex items-center justify-between mb-8">
+        {/* ─── Page title ──────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-white">Carteira de clientes</h1>
             <p className="text-sm mt-0.5" style={{ color: S.muted }}>
@@ -244,7 +306,16 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* add form */}
+        {/* ─── Stats strip ─────────────────────────────────────────────── */}
+        {!loading && clients.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <Stat value={clients.length} label={clients.length === 1 ? 'cliente ativo' : 'clientes ativos'} accent="#E8642A" />
+            <Stat value={stats.posts}    label="posts este mês"   accent="#10b981" />
+            {stats.atas > 0 && <Stat value={stats.atas} label="ATAs registradas" accent="#6366f1" />}
+          </div>
+        )}
+
+        {/* ─── Add form ────────────────────────────────────────────────── */}
         {formOpen && (
           <div className="rounded-xl border p-5 mb-6 modal-panel"
             style={{ backgroundColor: S.card, borderColor: S.ib }}>
@@ -300,29 +371,100 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* client list */}
+        {/* ─── Search ──────────────────────────────────────────────────── */}
+        {!loading && clients.length > 1 && (
+          <div className="relative mb-5">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="7" cy="7" r="4.5" stroke="#555568" strokeWidth="1.5"/>
+              <path d="M10.5 10.5l3 3" stroke="#555568" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar cliente…"
+              className="w-full text-sm rounded-xl pl-9 pr-9 py-2.5 focus:outline-none transition-all"
+              style={{ backgroundColor: S.card, border: `1px solid ${S.border}`, color: '#fff' }}
+              onFocus={e => { e.target.style.borderColor = '#3a3a48' }}
+              onBlur={e => { e.target.style.borderColor = S.border }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#444455] hover:text-white transition-colors text-base leading-none">
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ─── Client list ─────────────────────────────────────────────── */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
           </div>
         ) : clients.length === 0 ? (
+          /* Empty state */
           <div className="text-center py-24 rounded-xl border" style={{ borderColor: S.border }}>
             <p className="text-3xl mb-3">📋</p>
-            <p className="text-sm mb-5" style={{ color: S.muted }}>Nenhum cliente cadastrado ainda.</p>
+            <p className="text-white font-semibold mb-1">Nenhum cliente ainda</p>
+            <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: S.muted }}>
+              Adicione o primeiro cliente para começar a usar os módulos de gestão.
+            </p>
             <button onClick={() => setFormOpen(true)}
-              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+              className="px-5 py-2.5 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
               style={{ backgroundColor: '#E8642A' }}>
               + Adicionar primeiro cliente
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {clients.map(c => (
-              <ClientCard key={c.id} client={c}
-                onDelete={handleDelete}
-                deleting={deletingId === c.id} />
-            ))}
+        ) : filtered.length === 0 ? (
+          /* No search results */
+          <div className="text-center py-16 rounded-xl border" style={{ borderColor: S.border }}>
+            <p className="text-2xl mb-3">🔍</p>
+            <p className="text-sm" style={{ color: S.muted }}>
+              Nenhum cliente encontrado para "<span className="text-white">{search}</span>"
+            </p>
+            <button onClick={() => setSearch('')}
+              className="mt-4 text-xs px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: S.ib, color: S.muted }}>
+              Limpar busca
+            </button>
           </div>
+        ) : (
+          <>
+            {/* Recentes */}
+            {showRecents && (
+              <section className="mb-8">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: '#3a3a4a' }}>
+                  Recentes
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {recentClients.map(c => (
+                    <ClientCard key={c.id} client={c}
+                      onDelete={handleDelete}
+                      deleting={deletingId === c.id}
+                      onAccess={handleAccess}
+                      compact />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* All clients */}
+            {showRecents && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: '#3a3a4a' }}>
+                Todos os clientes
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filtered.map(c => (
+                <ClientCard key={c.id} client={c}
+                  onDelete={handleDelete}
+                  deleting={deletingId === c.id}
+                  onAccess={handleAccess} />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
