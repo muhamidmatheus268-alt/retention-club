@@ -61,11 +61,14 @@ function SkeletonCard() {
 }
 
 /* ─── ClientCard ───────────────────────────────────────────────────────── */
-function ClientCard({ client, onDelete, deleting, onAccess, compact }) {
+function ClientCard({ client, onDelete, deleting, onAccess, stats }) {
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const color = client.brand_color || '#E8642A'
+  const posts = stats?.posts || 0
+  const atas  = stats?.atas  || 0
+  const hasActivity = posts > 0 || atas > 0
 
   useEffect(() => {
     function handleClick(e) {
@@ -145,6 +148,26 @@ function ClientCard({ client, onDelete, deleting, onAccess, compact }) {
           </div>
         </div>
 
+        {/* activity signal */}
+        {hasActivity && (
+          <div className="flex items-center gap-3 mb-3 text-[11px]" style={{ color: S.muted }}>
+            {posts > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10b981' }} />
+                <span className="text-white font-semibold">{posts}</span>
+                posts no mês
+              </span>
+            )}
+            {atas > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#6366f1' }} />
+                <span className="text-white font-semibold">{atas}</span>
+                ATA{atas !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* module pills */}
         <div className="flex flex-wrap gap-1.5">
           {MODULES_SHORT.map(m => (
@@ -188,6 +211,7 @@ export default function AdminDashboard() {
   const [formOpen, setFormOpen]     = useState(false)
   const [search, setSearch]         = useState('')
   const [stats, setStats]           = useState({ posts: 0, atas: 0 })
+  const [perClient, setPerClient]   = useState({}) // { [client_id]: { posts, atas } }
   const [recentSlugs, setRecentSlugs] = useState(getRecentSlugs)
   const inputRef = useRef(null)
   const searchRef = useRef(null)
@@ -207,13 +231,31 @@ export default function AdminDashboard() {
     const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 
     const [postsRes, atasRes] = await Promise.allSettled([
-      supabase.from('calendar_entries').select('id', { count: 'exact', head: true }).gte('post_date', start),
-      supabase.from('atas').select('id', { count: 'exact', head: true }),
+      supabase.from('calendar_entries').select('client_id').gte('post_date', start),
+      supabase.from('atas').select('client_id'),
     ])
 
+    /* Aggregate per-client counts */
+    const map = {}
+    if (postsRes.status === 'fulfilled' && postsRes.value.data) {
+      for (const r of postsRes.value.data) {
+        if (!r.client_id) continue
+        map[r.client_id] ??= { posts: 0, atas: 0 }
+        map[r.client_id].posts++
+      }
+    }
+    if (atasRes.status === 'fulfilled' && atasRes.value.data) {
+      for (const r of atasRes.value.data) {
+        if (!r.client_id) continue
+        map[r.client_id] ??= { posts: 0, atas: 0 }
+        map[r.client_id].atas++
+      }
+    }
+    setPerClient(map)
+
     setStats({
-      posts: postsRes.status === 'fulfilled' ? (postsRes.value.count || 0) : 0,
-      atas:  atasRes.status  === 'fulfilled' ? (atasRes.value.count  || 0) : 0,
+      posts: postsRes.status === 'fulfilled' ? (postsRes.value.data?.length || 0) : 0,
+      atas:  atasRes.status  === 'fulfilled' ? (atasRes.value.data?.length  || 0) : 0,
     })
   }
 
@@ -449,7 +491,7 @@ export default function AdminDashboard() {
                       onDelete={handleDelete}
                       deleting={deletingId === c.id}
                       onAccess={handleAccess}
-                      compact />
+                      stats={perClient[c.id]} />
                   ))}
                 </div>
               </section>
@@ -466,7 +508,8 @@ export default function AdminDashboard() {
                 <ClientCard key={c.id} client={c}
                   onDelete={handleDelete}
                   deleting={deletingId === c.id}
-                  onAccess={handleAccess} />
+                  onAccess={handleAccess}
+                  stats={perClient[c.id]} />
               ))}
             </div>
           </>
