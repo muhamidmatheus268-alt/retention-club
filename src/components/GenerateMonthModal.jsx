@@ -27,6 +27,17 @@ const SEG_PRESETS = [
   'Novos leads (30d)',
 ]
 
+function startOfThisWeek() {
+  const d = new Date()
+  const dow = d.getDay() // 0=sun
+  const diff = dow === 0 ? -6 : 1 - dow // monday
+  d.setDate(d.getDate() + diff)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export default function GenerateMonthModal({
   open,
   onClose,
@@ -35,7 +46,8 @@ export default function GenerateMonthModal({
   year,
   month, /* 0-indexed */
   brandColor = '#E8642A',
-  onDone,    /* () => void — chamado após inserir com sucesso */
+  onDone,
+  scope = 'month', /* 'month' | 'week' */
 }) {
   const [step, setStep] = useState('form') // form | loading | preview | saving
   const [error, setError] = useState('')
@@ -89,6 +101,8 @@ export default function GenerateMonthModal({
           focus,
           includePilares,
           startFromToday,
+          scope,
+          ...(scope === 'week' ? { weekStartIso: startOfThisWeek() } : {}),
         }),
       })
       const data = await res.json()
@@ -154,7 +168,9 @@ export default function GenerateMonthModal({
   }
 
   /* ── render ─────────────────────────────────────────────────────────── */
-  const title = `Gerar ${MONTH_NAMES[month]}/${year} · ${CHANNEL_LABELS[channel] || channel}`
+  const title = scope === 'week'
+    ? `Gerar semana · ${CHANNEL_LABELS[channel] || channel}`
+    : `Gerar ${MONTH_NAMES[month]}/${year} · ${CHANNEL_LABELS[channel] || channel}`
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 modal-backdrop"
@@ -215,7 +231,7 @@ export default function GenerateMonthModal({
           {step === 'form' && (
             <>
               <span className="text-[11px]" style={{ color: S.muted }}>
-                IA gerará ~{Math.round(cadence * 4.3)} entradas com todos os campos preenchidos
+                IA gerará ~{scope === 'week' ? cadence : Math.round(cadence * 4.3)} entradas com todos os campos preenchidos
               </span>
               <div className="flex gap-2">
                 <button onClick={onClose}

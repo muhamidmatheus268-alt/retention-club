@@ -1,6 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import GenerateMonthModal from './GenerateMonthModal'
+import CalendarActionsMenu from './CalendarActionsMenu'
+import PlaybookModal from './PlaybookModal'
+import PostMortemModal from './PostMortemModal'
+import RecurringModal from './RecurringModal'
+import ImportCSVModal from './ImportCSVModal'
+import {
+  cloneFromPreviousMonth, exportToICal, exportToCSV,
+  qualityCheck, balanceCheck, bulkUpdate, bulkDelete,
+} from '../lib/calendarHelpers'
 
 const CHANNELS = [
   { key: 'email',    label: 'Email' },
@@ -307,6 +316,7 @@ const LIGHT = {
 
 export default function CalendarView({
   clientId,
+  clientName = 'cliente',
   isAdmin    = false,
   brandColor = '#E8642A',
   brandFont  = null,
@@ -331,8 +341,40 @@ export default function CalendarView({
   const [result, setResult]       = useState(EMPTY_RESULT)
   const [resSaving, setResSaving] = useState(false)
   const [resSaved, setResSaved]   = useState(false)
-  const [genOpen, setGenOpen]     = useState(false)
-  const [genToast, setGenToast]   = useState('')
+  const [genOpen, setGenOpen]          = useState(false)
+  const [genToast, setGenToast]        = useState('')
+  const [playbookOpen, setPlaybookOpen] = useState(false)
+  const [pmOpen, setPmOpen]            = useState(false)
+  const [recurringOpen, setRecurringOpen] = useState(false)
+  const [importOpen, setImportOpen]    = useState(false)
+  const [weekOpen, setWeekOpen]        = useState(false)
+  const [bulkMode, setBulkMode]        = useState(false)
+  const [bulkIds, setBulkIds]          = useState(() => new Set())
+  const [bulkAction, setBulkAction]    = useState(null)
+  const [variations, setVariations]    = useState(null)  // { loading, items, error }
+
+  async function handleVariations() {
+    setVariations({ loading: true, items: [], error: '' })
+    try {
+      const res = await fetch('/api/variations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          tema: form.tema, assunto: form.assunto, preheader: form.preheader,
+          descricao: form.descricao, segmentacao: form.segmentacao,
+          count: 3,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setVariations({ loading: false, items: [], error: data.error || 'Erro' }); return }
+      setVariations({ loading: false, items: data.variations || [], error: '' })
+    } catch (e) { setVariations({ loading: false, items: [], error: e.message }) }
+  }
+
+  function applyVariation(v) {
+    setForm(f => ({ ...f, assunto: v.assunto || f.assunto, preheader: v.preheader || f.preheader }))
+    setVariations(null)
+  }
 
   const t = isDark ? DARK : LIGHT
   const rows = channel === 'email' ? EMAIL_ROWS
@@ -379,6 +421,82 @@ export default function CalendarView({
   function getEntry(day) {
     return entries.find(e => e.date === formatDate(year, month, day)) || null
   }
+
+  /* Clear bulk selection when leaving month or bulk mode off */
+  useEffect(() => { setBulkIds(new Set()) }, [month, year, channel, bulkMode])
+
+  function showToast(msg) {
+    setGenToast(msg)
+    setTimeout(() => setGenToast(''), 3500)
+  }
+
+  async function handleAction(key) {
+    if (key === 'gen_month')  return setGenOpen(true)
+    if (key === 'gen_week')   return setWeekOpen(true)
+    if (key === 'playbook')   return setPlaybookOpen(true)
+    if (key === 'postmortem') return setPmOpen(true)
+    if (key === 'recurring')  return setRecurringOpen(true)
+    if (key === 'import_csv') return setImportOpen(true)
+    if (key === 'bulk')       return setBulkMode(m => !m)
+
+    if (key === 'clone_prev') {
+      if (!window.confirm('Replicar entradas do mês anterior para este mês?')) return
+      try {
+        const { inserted, skipped } = await cloneFromPreviousMonth({ clientId, year, month, channel })
+        await fetchEntries()
+        showToast(`${inserted} entrada${inserted !== 1 ? 's' : ''} replicada${inserted !== 1 ? 's' : ''}${skipped ? ` · ${skipped} ignorada${skipped !== 1 ? 's' : ''} (já existia${skipped !== 1 ? 'm' : ''})` : ''}`)
+      } catch (e) { showToast('Erro: ' + e.message) }
+      return
+    }
+
+    if (key === 'export_csv') {
+      exportToCSV({ entries, clientName, channel })
+      showToast(`${entries.length} entrada${entries.length !== 1 ? 's' : ''} exportada${entries.length !== 1 ? 's' : ''} em CSV`)
+      return
+    }
+
+    if (key === 'export_ical') {
+      exportToICal({ entries, clientName, channel })
+      showToast('Arquivo .ics baixado — importe no Google/Apple Calendar')
+      return
+    }
+  }
+
+  /* ── Bulk selection ── */
+  function toggleBulk(entryId) {
+    if (!entryId) return
+    setBulkIds(prev => {
+      const n = new Set(prev)
+      if (n.has(entryId)) n.delete(entryId); else n.add(entryId)
+      return n
+    })
+  }
+
+  async function applyBulk(updates) {
+    if (bulkIds.size === 0) return
+    try {
+      await bulkUpdate({ ids: [...bulkIds], updates })
+      await fetchEntries()
+      showToast(`${bulkIds.size} entrada${bulkIds.size !== 1 ? 's' : ''} atualizada${bulkIds.size !== 1 ? 's' : ''}`)
+      setBulkIds(new Set())
+      setBulkAction(null)
+    } catch (e) { showToast('Erro: ' + e.message) }
+  }
+
+  async function deleteBulk() {
+    if (bulkIds.size === 0) return
+    if (!window.confirm(`Excluir ${bulkIds.size} entrada${bulkIds.size !== 1 ? 's' : ''}?`)) return
+    try {
+      await bulkDelete({ ids: [...bulkIds] })
+      await fetchEntries()
+      showToast(`${bulkIds.size} entrada${bulkIds.size !== 1 ? 's' : ''} excluída${bulkIds.size !== 1 ? 's' : ''}`)
+      setBulkIds(new Set())
+    } catch (e) { showToast('Erro: ' + e.message) }
+  }
+
+  /* ── Quality + balance checks (memo) ── */
+  const qualityIssues = useMemo(() => qualityCheck(entries, channel), [entries, channel])
+  const balanceInsights = useMemo(() => balanceCheck(entries, { month, year }), [entries, month, year])
 
   // ── nav ───────────────────────────────────────────────────────────────────
 
@@ -450,7 +568,7 @@ export default function CalendarView({
     setDeleting(false)
   }
 
-  async function handleAISuggest() {
+  async function handleAISuggest(mode = 'fill') {
     setAiLoading(true)
     setModalErr('')
     try {
@@ -463,6 +581,16 @@ export default function CalendarView({
           date: modal?.date,
           acao_comercial: form.acao_comercial,
           client_id: clientId,
+          /* Send current values so AI only fills what's empty (mode=fill) */
+          segmentacao: form.segmentacao,
+          descricao:   form.descricao,
+          assunto:     form.assunto,
+          preheader:   form.preheader,
+          link_copy:   form.link_copy,
+          observacoes: form.observacoes,
+          horario:     form.horario,
+          metodo_mensuracao: form.metodo_mensuracao,
+          mode,
         }),
       })
       const data = await res.json()
@@ -477,6 +605,8 @@ export default function CalendarView({
           assunto:     data.assunto     || f.assunto,
           preheader:   data.preheader   || f.preheader,
           observacoes: data.observacoes || f.observacoes,
+          horario:     data.horario     || f.horario,
+          metodo_mensuracao: data.metodo_mensuracao || f.metodo_mensuracao,
         }))
       }
     } catch (e) {
@@ -577,19 +707,9 @@ export default function CalendarView({
             </span>
           )}
 
-          {/* Gerar mês com IA — admin only */}
+          {/* Ações (IA + utilitários) — admin only */}
           {isAdmin && (
-            <button
-              onClick={() => setGenOpen(true)}
-              title="Gerar calendário completo com IA"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all flex items-center gap-1.5 hover:opacity-90"
-              style={{
-                background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
-                boxShadow: `0 2px 8px ${brandColor}40`,
-              }}
-            >
-              ✨ Gerar mês
-            </button>
+            <CalendarActionsMenu brandColor={brandColor} onAction={handleAction} />
           )}
 
           {/* Theme toggle */}
@@ -605,6 +725,66 @@ export default function CalendarView({
 
         {loading && <span className={`text-xs ${t.textFaint}`}>Carregando…</span>}
       </div>
+
+      {/* ── Bulk mode bar ── */}
+      {isAdmin && bulkMode && (
+        <div className="shrink-0 flex items-center justify-between flex-wrap gap-3 px-6 py-2.5 border-b"
+          style={{ borderColor: isDark ? '#1f2937' : '#e5e7eb', backgroundColor: brandColor + '18' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: brandColor }}>
+              ✓ Modo seleção
+            </span>
+            <span className="text-xs" style={{ color: isDark ? '#c4c4d0' : '#374151' }}>
+              <span className="font-bold">{bulkIds.size}</span> selecionada{bulkIds.size !== 1 ? 's' : ''} · Clique nos dias para marcar
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {bulkIds.size > 0 && (
+              <>
+                <BulkBtn onClick={() => applyBulk({ status: 'agendado' })} isDark={isDark}>→ Agendado</BulkBtn>
+                <BulkBtn onClick={() => applyBulk({ status: 'criado' })} isDark={isDark}>→ Criado</BulkBtn>
+                <BulkBtn onClick={() => applyBulk({ status: 'enviado' })} isDark={isDark}>→ Enviado</BulkBtn>
+                <BulkBtn onClick={() => {
+                  const seg = window.prompt('Nova segmentação para todas:')
+                  if (seg != null) applyBulk({ segmentacao: seg })
+                }} isDark={isDark}>Segmentação…</BulkBtn>
+                {channel === 'email' && (
+                  <BulkBtn onClick={() => {
+                    const h = window.prompt('Novo horário (HH:MM):')
+                    if (h) applyBulk({ horario: h })
+                  }} isDark={isDark}>Horário…</BulkBtn>
+                )}
+                <BulkBtn onClick={deleteBulk} isDark={isDark} danger>Excluir</BulkBtn>
+              </>
+            )}
+            <BulkBtn onClick={() => { setBulkIds(new Set()); setBulkMode(false) }} isDark={isDark}>✕ Sair</BulkBtn>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quality & balance insights ── */}
+      {isAdmin && !bulkMode && (qualityIssues.length > 0 || balanceInsights.length > 0) && (
+        <div className="shrink-0 flex items-center gap-2 flex-wrap px-6 py-2 border-b"
+          style={{ borderColor: isDark ? '#1f2937' : '#e5e7eb', backgroundColor: isDark ? '#0e0e18' : '#fcfaf5' }}>
+          <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: '#555568' }}>
+            ⚡ Insights
+          </span>
+          {qualityIssues.length > 0 && (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold"
+              style={{ backgroundColor: '#f59e0b22', color: '#f59e0b' }}>
+              ⚠ {qualityIssues.length} entrada{qualityIssues.length !== 1 ? 's' : ''} com campos faltando
+            </span>
+          )}
+          {balanceInsights.map((b, i) => (
+            <span key={i} className="px-2 py-0.5 rounded-md text-[10px] font-medium"
+              style={b.type === 'warn'
+                ? { backgroundColor: '#f59e0b15', color: '#f59e0b' }
+                : { backgroundColor: '#6366f115', color: '#818cf8' }}>
+              {b.text}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── Results BI Strip ── */}
       {hasBiData && (
@@ -814,11 +994,54 @@ export default function CalendarView({
                           const entry   = day ? getEntry(day) : null
                           const td      = day && isToday(day)
                           const isPilar = day && entry?.acao_comercial
+                          const isSelected = bulkMode && entry && bulkIds.has(entry.id)
+                          const targetIso = day ? formatDate(year, month, day) : null
+
+                          /* Drag & drop handlers — admin, not in bulk mode */
+                          const dragProps = (isAdmin && !bulkMode && day) ? {
+                            draggable: !!entry?.id,
+                            onDragStart: (e) => {
+                              if (!entry?.id) return
+                              e.dataTransfer.setData('text/plain', String(entry.id))
+                              e.dataTransfer.effectAllowed = 'move'
+                            },
+                            onDragOver: (e) => {
+                              e.preventDefault()
+                              e.dataTransfer.dropEffect = 'move'
+                              e.currentTarget.style.boxShadow = `inset 0 0 0 2px ${brandColor}`
+                            },
+                            onDragLeave: (e) => { e.currentTarget.style.boxShadow = '' },
+                            onDrop: async (e) => {
+                              e.preventDefault()
+                              e.currentTarget.style.boxShadow = ''
+                              const draggedId = Number(e.dataTransfer.getData('text/plain'))
+                              if (!draggedId || !targetIso) return
+                              const dragged = entries.find(x => x.id === draggedId)
+                              if (!dragged || dragged.date === targetIso) return
+                              /* If target already has entry, swap dates via a safe temp date */
+                              if (entry?.id && entry.id !== draggedId) {
+                                const temp = '1900-01-01'
+                                await supabase.from('calendar_entries').update({ date: temp }).eq('id', entry.id)
+                                await supabase.from('calendar_entries').update({ date: targetIso }).eq('id', draggedId)
+                                await supabase.from('calendar_entries').update({ date: dragged.date }).eq('id', entry.id)
+                                showToast('Entradas trocadas de dia')
+                              } else {
+                                await supabase.from('calendar_entries').update({ date: targetIso }).eq('id', draggedId)
+                                showToast('Entrada remarcada')
+                              }
+                              await fetchEntries()
+                            },
+                          } : {}
 
                           return (
                             <td
                               key={ci}
-                              onClick={() => day && openModal(day)}
+                              {...dragProps}
+                              onClick={() => {
+                                if (!day) return
+                                if (bulkMode) { if (entry?.id) toggleBulk(entry.id) }
+                                else { openModal(day) }
+                              }}
                               className={`border-b border-r ${t.border} px-2 py-2 align-middle transition-colors
                                 ${!day ? t.cellEmpty : isWknd ? t.cellWeekend : t.cellBase}
                                 ${day && isAdmin ? `cursor-pointer ${t.cellHover}` : ''}
@@ -831,6 +1054,11 @@ export default function CalendarView({
                                 ...(isWknd && !isDark && day ? { backgroundColor: '#f5f2ed' } : {}),
                                 ...(td ? { outline: `2px solid ${brandColor}40`, outlineOffset: '-2px' } : {}),
                                 ...(isPilar ? { backgroundColor: isDark ? '#1c1a0a' : '#fefce8' } : {}),
+                                ...(isSelected ? {
+                                  outline: `2px solid ${brandColor}`,
+                                  outlineOffset: '-2px',
+                                  backgroundColor: brandColor + '25',
+                                } : {}),
                               }}
                             >
                               {day && (
@@ -874,22 +1102,46 @@ export default function CalendarView({
         </div>
       </div>
 
-      {/* ── Gerar mês (AI) ── */}
+      {/* ── Modais (admin only) ── */}
       {isAdmin && (
-        <GenerateMonthModal
-          open={genOpen}
-          onClose={() => setGenOpen(false)}
-          clientId={clientId}
-          channel={channel}
-          year={year}
-          month={month}
-          brandColor={brandColor}
-          onDone={(count) => {
-            fetchEntries()
-            setGenToast(`${count} entrada${count !== 1 ? 's' : ''} criada${count !== 1 ? 's' : ''} no calendário`)
-            setTimeout(() => setGenToast(''), 3500)
-          }}
-        />
+        <>
+          <GenerateMonthModal
+            open={genOpen}  onClose={() => setGenOpen(false)}
+            clientId={clientId} channel={channel} year={year} month={month}
+            brandColor={brandColor}
+            onDone={(count) => { fetchEntries(); showToast(`${count} entrada${count !== 1 ? 's' : ''} criada${count !== 1 ? 's' : ''}`) }}
+          />
+          <GenerateMonthModal
+            open={weekOpen} onClose={() => setWeekOpen(false)}
+            clientId={clientId} channel={channel} year={year} month={month}
+            brandColor={brandColor}
+            scope="week"
+            onDone={(count) => { fetchEntries(); showToast(`${count} entrada${count !== 1 ? 's' : ''} criada${count !== 1 ? 's' : ''}`) }}
+          />
+          <PlaybookModal
+            open={playbookOpen} onClose={() => setPlaybookOpen(false)}
+            clientId={clientId} channel={channel} year={year} month={month}
+            brandColor={brandColor}
+            onDone={(count) => { fetchEntries(); showToast(`Playbook aplicado · ${count} entrada${count !== 1 ? 's' : ''}`) }}
+          />
+          <PostMortemModal
+            open={pmOpen} onClose={() => setPmOpen(false)}
+            clientId={clientId} channel={channel} year={year} month={month}
+            brandColor={brandColor}
+          />
+          <RecurringModal
+            open={recurringOpen} onClose={() => setRecurringOpen(false)}
+            clientId={clientId} channel={channel} year={year} month={month}
+            brandColor={brandColor}
+            onDone={(count) => { fetchEntries(); showToast(`${count} recorrente${count !== 1 ? 's' : ''} criada${count !== 1 ? 's' : ''}`) }}
+          />
+          <ImportCSVModal
+            open={importOpen} onClose={() => setImportOpen(false)}
+            clientId={clientId} channel={channel}
+            brandColor={brandColor}
+            onDone={(count) => { fetchEntries(); showToast(`${count} entrada${count !== 1 ? 's' : ''} importada${count !== 1 ? 's' : ''}`) }}
+          />
+        </>
       )}
 
       {/* Inline success toast after generation */}
@@ -1021,6 +1273,52 @@ export default function CalendarView({
                   <MField label="Assunto" t={t}>
                     <MInput isAdmin={isAdmin} value={form.assunto} placeholder="Linha de assunto do e-mail"
                       onChange={v => setForm(f => ({ ...f, assunto: v }))} t={t} brandColor={brandColor} />
+                    {isAdmin && modal?.entry?.id && (
+                      <button type="button" onClick={handleVariations}
+                        disabled={variations?.loading}
+                        className="mt-1.5 text-[11px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                        style={{ color: brandColor }}>
+                        {variations?.loading ? '✨ Gerando variações…' : '✨ Gerar 3 variações A/B'}
+                      </button>
+                    )}
+                    {variations?.error && (
+                      <p className="mt-1.5 text-[11px]" style={{ color: '#ef4444' }}>{variations.error}</p>
+                    )}
+                    {variations && !variations.loading && variations.items.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#555568' }}>
+                          Clique para aplicar
+                        </p>
+                        {variations.items.map((v, i) => (
+                          <button key={i} type="button" onClick={() => applyVariation(v)}
+                            className="w-full text-left rounded-lg border p-2.5 hover:opacity-90 transition-all"
+                            style={{
+                              backgroundColor: isDark ? '#0c0c10' : '#f9fafb',
+                              borderColor: isDark ? '#1e1e2a' : '#d6d3cc',
+                            }}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                style={{ backgroundColor: brandColor + '22', color: brandColor }}>
+                                {v.angulo || 'variação'}
+                              </span>
+                              <span className="text-[10px]" style={{ color: '#555568' }}>#{i + 1}</span>
+                            </div>
+                            <p className="text-xs font-semibold" style={{ color: isDark ? '#fff' : '#111' }}>
+                              {v.assunto}
+                            </p>
+                            {v.preheader && (
+                              <p className="text-[11px] mt-0.5" style={{ color: '#8b8ba0' }}>
+                                {v.preheader}
+                              </p>
+                            )}
+                          </button>
+                        ))}
+                        <button type="button" onClick={() => setVariations(null)}
+                          className="text-[10px]" style={{ color: '#555568' }}>
+                          Fechar variações
+                        </button>
+                      </div>
+                    )}
                   </MField>
                   <MField label="Preheader" t={t}>
                     <MInput isAdmin={isAdmin} value={form.preheader} placeholder="Texto de preview"
@@ -1299,6 +1597,22 @@ export default function CalendarView({
         </div>
       )}
     </div>
+  )
+}
+
+// ─── BulkBtn ─────────────────────────────────────────────────────────────────
+
+function BulkBtn({ onClick, isDark, danger, children }) {
+  return (
+    <button onClick={onClick}
+      className="px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors"
+      style={{
+        backgroundColor: danger ? '#ef444418' : isDark ? '#1f2937' : '#ffffff',
+        borderColor: danger ? '#ef444455' : isDark ? '#374151' : '#d6d3cc',
+        color: danger ? '#f87171' : isDark ? '#e5e7eb' : '#374151',
+      }}>
+      {children}
+    </button>
   )
 }
 

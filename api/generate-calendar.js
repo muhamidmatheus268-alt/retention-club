@@ -101,10 +101,13 @@ export default async function handler(req, res) {
     channel,                    // email | whatsapp | vip
     cadence = 3,                // posts por semana
     segmentations = [],         // strings
-    tom = '',                   // ex: "acolhedor e empoderador"
-    focus = '',                 // ex: "lançamento do novo kit"
-    includePilares = true,      // marcar pilares automaticamente em datas comerciais
-    startFromToday = false,     // se true, não gera datas anteriores a hoje
+    tom = '',
+    focus = '',
+    includePilares = true,
+    startFromToday = false,
+    scope = 'month',            // month | week
+    weekStartIso = null,        // se scope=week, data inicial (segunda)
+    playbook = null,            // opcional: 'black_friday' | 'maes' | 'aniversario' | ...
   } = req.body || {}
 
   if (!client_id || year == null || month == null || !channel) {
@@ -126,7 +129,7 @@ export default async function handler(req, res) {
     clientName = sbData?.[0]?.name  || ''
   } catch { /* ignore */ }
 
-  /* ── Montar contexto do mês ──────────────────────────────────────────── */
+  /* ── Montar contexto do período ──────────────────────────────────────── */
   const daysInMonth = getDaysInMonth(year, month)
   const holidays    = getHolidaysForMonth(year, month)
   const todayIso    = isoDate(new Date())
@@ -139,6 +142,12 @@ export default async function handler(req, res) {
     const isWeekend = date.getDay() === 0 || date.getDay() === 6
     const holiday = holidays.find(h => h.day === d)
     if (startFromToday && iso < todayIso) continue
+    if (scope === 'week' && weekStartIso) {
+      const start = weekStartIso
+      const endDate = new Date(weekStartIso); endDate.setDate(endDate.getDate() + 6)
+      const endIso = isoDate(endDate)
+      if (iso < start || iso > endIso) continue
+    }
     monthDays.push({ day: d, iso, weekday, isWeekend, holiday })
   }
 
@@ -183,7 +192,64 @@ export default async function handler(req, res) {
     return d.holiday ? `${base} — ${d.holiday.name}` : base
   }).join('\n')
 
-  const prompt = `Você é especialista em CRM e retenção para e-commerce. Gere o calendário de ${channelName} completo para ${clientName ? clientName + ' em ' : ''}${monthLabel}.
+  /* ── Playbooks ─────────────────────────────────────────────────────── */
+  const PLAYBOOKS = {
+    black_friday: `PLAYBOOK: SEMANA BLACK FRIDAY
+Gere 5-7 disparos crescendo em intensidade:
+- D-7 a D-4: Teaser / warming (mistério, "algo grande vem aí")
+- D-3 a D-1: Revelação da oferta + urgência ("últimas 48h", "corra")
+- D0 (sexta): Disparo principal (pilar) — maior impacto
+- D+1 (sábado): Extensão / lembretes "últimas horas"`,
+
+    maes: `PLAYBOOK: DIA DAS MÃES
+Gere 4-6 disparos ao longo de 2 semanas antes da data:
+- Começa suave (homenagem, conteúdo emocional)
+- Cresce em ofertas
+- Pico no fim de semana anterior ao Dia das Mães
+- Último disparo: "últimas horas para chegar a tempo"`,
+
+    aniversario: `PLAYBOOK: ANIVERSÁRIO DA MARCA
+Gere 5 disparos ao longo da semana:
+- Storytelling / "como tudo começou"
+- Agradecimento aos clientes fiéis
+- Oferta exclusiva aniversário (pilar)
+- Destaques dos produtos mais queridos
+- Último dia / encerramento com urgência`,
+
+    liquidacao: `PLAYBOOK: LIQUIDAÇÃO / QUEIMA DE ESTOQUE
+Gere 5-7 disparos com foco em urgência:
+- Anúncio inicial ("liquidação começou")
+- Destaque de categorias
+- Reforço com escassez ("últimas unidades")
+- Pilar: "último fim de semana"
+- Fechamento: "última chance"`,
+
+    lancamento: `PLAYBOOK: LANÇAMENTO DE PRODUTO
+Gere 5-7 disparos sequenciais:
+- Teaser (sem revelar o produto)
+- Educação (problema que o produto resolve)
+- Revelação oficial (pilar)
+- Depoimentos / social proof
+- Oferta de lançamento com prazo`,
+
+    reengajamento: `PLAYBOOK: REENGAJAMENTO
+Gere 4 disparos para base inativa (90-180d):
+- "Sentimos sua falta" com tom acolhedor
+- Cupom exclusivo de retorno
+- Novidades desde a última compra
+- Último push com urgência ("cupom expira em 48h")`,
+  }
+
+  const playbookInstruction = playbook && PLAYBOOKS[playbook]
+    ? `\n\n## PLAYBOOK ATIVO\n${PLAYBOOKS[playbook]}\nEste playbook tem PRIORIDADE sobre as regras de cadência abaixo — siga a sequência narrativa descrita.`
+    : ''
+
+  const scopeLabel = scope === 'week' ? 'semana' : 'mês'
+  const scopeDesc  = scope === 'week'
+    ? `a semana de ${weekStartIso} a ${isoDate(new Date(new Date(weekStartIso).getTime() + 6 * 86400000))}`
+    : monthLabel
+
+  const prompt = `Você é especialista em CRM e retenção para e-commerce. Gere o calendário de ${channelName} completo para ${clientName ? clientName + ' — ' : ''}${scopeDesc}.${playbookInstruction}
 
 ## CONTEXTO DA MARCA
 ${brain || '(sem Cérebro IA cadastrado — use bom senso de marketing B2C)'}
@@ -201,8 +267,8 @@ ${holidayLine}
 ${daysLine}
 
 ## REGRAS DE GERAÇÃO
-1. Gere aproximadamente ${cadence} disparos por semana (total ~${Math.round(cadence * 4.3)} no mês).
-2. Distribua ao longo do mês — NÃO concentre tudo numa semana só.
+1. Gere aproximadamente ${cadence} disparos por semana (total ~${scope === 'week' ? cadence : Math.round(cadence * 4.3)} no ${scopeLabel}).
+2. Distribua ao longo do período — NÃO concentre tudo num dia ou semana só.
 3. Prefira terça, quarta e quinta. Evite segundas e fins de semana, EXCETO se houver data comercial.
 4. ${includePilares ? 'Marque "acao_comercial: true" em datas comerciais relevantes (Black Friday, Dia das Mães, etc.) e em 1-2 datas estratégicas adicionais (lançamentos, liquidações).' : 'Não marque pilares automaticamente.'}
 5. Rotacione as segmentações — evite repetir a mesma segmentação 3x seguidas.
