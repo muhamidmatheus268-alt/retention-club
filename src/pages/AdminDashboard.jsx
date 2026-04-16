@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 function timeGreeting() {
   const h = new Date().getHours()
@@ -215,6 +216,7 @@ export default function AdminDashboard() {
   const { signOut, isAdmin, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const toast = useToast()
   const [clients, setClients]       = useState([])
   const [loading, setLoading]       = useState(true)
   const [newName, setNewName]       = useState('')
@@ -298,22 +300,32 @@ export default function AdminDashboard() {
     e.preventDefault()
     if (!newName.trim()) return
     setError(''); setAdding(true)
-    const slug = generateSlug(newName.trim())
-    const { error } = await supabase.from('clients').insert({ name: newName.trim(), slug, brand_color: newColor })
+    const name = newName.trim()
+    const slug = generateSlug(name)
+    const { error } = await supabase.from('clients').insert({ name, slug, brand_color: newColor })
     if (error) {
-      setError(error.message.includes('duplicate') ? 'Já existe um cliente com esse nome.' : error.message)
+      const msg = error.message.includes('duplicate') ? 'Já existe um cliente com esse nome.' : error.message
+      setError(msg)
+      toast.error(msg)
     } else {
       setNewName(''); setFormOpen(false); await fetchClients()
+      toast.success(`${name} adicionado à carteira.`)
     }
     setAdding(false)
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Excluir este cliente e todos os seus dados?')) return
+    const client = clients.find(c => c.id === id)
+    if (!window.confirm(`Excluir ${client?.name || 'este cliente'} e todos os seus dados?`)) return
     setDeletingId(id)
-    await supabase.from('calendar_entries').delete().eq('client_id', id)
-    await supabase.from('clients').delete().eq('id', id)
-    setClients(p => p.filter(c => c.id !== id))
+    const { error } = await supabase.from('calendar_entries').delete().eq('client_id', id)
+    const { error: e2 } = await supabase.from('clients').delete().eq('id', id)
+    if (error || e2) {
+      toast.error('Erro ao excluir cliente.')
+    } else {
+      setClients(p => p.filter(c => c.id !== id))
+      toast.success(`${client?.name || 'Cliente'} removido.`)
+    }
     setDeletingId(null)
   }
 
