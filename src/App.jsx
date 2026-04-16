@@ -23,6 +23,7 @@ import GestaoUsuarios from './pages/GestaoUsuarios'
 import BancoImagens from './pages/BancoImagens'
 import ATA from './pages/ATA'
 import CommandPalette from './components/CommandPalette'
+import ShortcutsHelp from './components/ShortcutsHelp'
 import ErrorBoundary from './components/ErrorBoundary'
 
 /* Smart root redirect based on role */
@@ -34,12 +35,17 @@ function RootRedirect() {
   return <Navigate to="/admin" replace />
 }
 
-/* Command palette only for authenticated admin/analista users */
-function GlobalCommandPalette() {
+/* Global overlays only for authenticated admin/analista users */
+function GlobalOverlays() {
   const { session, role } = useAuth()
   if (!session) return null
   if (role !== 'admin' && role !== 'analista') return null
-  return <CommandPalette />
+  return (
+    <>
+      <CommandPalette />
+      <ShortcutsHelp />
+    </>
+  )
 }
 
 /* Admin/Analista only guard */
@@ -86,7 +92,7 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
-          <GlobalCommandPalette />
+          <GlobalOverlays />
           <Routes>
             {/* Public */}
             <Route path="/"                element={<RootRedirect />} />

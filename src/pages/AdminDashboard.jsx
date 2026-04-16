@@ -232,6 +232,15 @@ export default function AdminDashboard() {
   useEffect(() => { fetchClients(); fetchStats() }, [])
   useEffect(() => { if (formOpen) setTimeout(() => inputRef.current?.focus(), 50) }, [formOpen])
 
+  /* Auto-refresh stats when tab becomes visible again */
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === 'visible') fetchStats()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
   async function fetchClients() {
     setLoading(true)
     const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false })

@@ -142,6 +142,13 @@ function AppShell({ children, activeModule, fullHeight }) {
           <NavBottom icon={<GridIcon size={14} color="#555568" />} label="Painel geral" onClick={() => navigate('/admin')} />
           <NavBottom icon={<FunnelIcon size={14} color="#555568" />} label="Funil CRM" onClick={() => navigate('/admin/quiz-respostas')} />
           <NavBottom icon={<LogoutIcon size={14} color="#555568" />} label="Sair" onClick={async () => { await signOut(); navigate('/login') }} />
+          <div className="flex items-center justify-between px-3 pt-2 mt-1 border-t" style={{ borderColor: '#1a1a26' }}>
+            <span className="text-[10px]" style={{ color: '#33333f' }}>Atalhos</span>
+            <div className="flex items-center gap-1">
+              <kbd className="text-[9px] font-mono px-1 py-0.5 rounded border" style={{ borderColor: '#2a2a38', color: '#555568' }}>⌘K</kbd>
+              <kbd className="text-[9px] font-mono px-1 py-0.5 rounded border" style={{ borderColor: '#2a2a38', color: '#555568' }}>?</kbd>
+            </div>
+          </div>
         </div>
       </aside>
 
