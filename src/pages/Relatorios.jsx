@@ -362,7 +362,7 @@ Seja direto, técnico e orientado a dados. Não use linguagem genérica.`
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-opus-4-7',
       max_tokens: 600,
       messages: [{ role: 'user', content: prompt }],
     }),

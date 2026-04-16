@@ -478,7 +478,7 @@ Retorne APENAS um JSON válido neste formato exato, sem texto adicional:
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-opus-4-7',
       max_tokens: 600,
       messages: [{ role: 'user', content: prompt }],
     }),

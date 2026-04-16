@@ -83,7 +83,7 @@ async function parseAtaWithAI(rawText, clientName) {
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-opus-4-7',
       max_tokens: 1800,
       messages: [{
         role: 'user',
@@ -380,7 +380,7 @@ Retorne APENAS este JSON válido, sem texto adicional:
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'claude-opus-4-7',
       max_tokens: 1200,
       messages: [{ role: 'user', content: prompt }],
     }),
