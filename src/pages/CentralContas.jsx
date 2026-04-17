@@ -31,6 +31,16 @@ function ContasContent() {
   const [showSenha, setShowSenha] = useState({})
   const [stackModal, setStackModal] = useState(null)
 
+  /* ⌘K trigger */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.runStack && client) {
+      runStackAnalysis()
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [client])
+
   async function runStackAnalysis() {
     setStackModal({ loading: true, data: null, error: '' })
     try {

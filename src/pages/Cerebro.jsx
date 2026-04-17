@@ -43,6 +43,16 @@ function CerebroContent() {
   const [aiModal, setAiModal]     = useState(null) // { mode, data, error }
   const [hint, setHint]           = useState('')
 
+  /* ⌘K trigger */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.runReview && client && brain !== null) {
+      runAI('review')
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [client, brain])
+
   async function runAI(mode) {
     setAiLoading(true); setAiModal({ mode, data: null, error: '' })
     try {

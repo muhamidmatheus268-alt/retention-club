@@ -400,6 +400,20 @@ function RelContent() {
 
   useEffect(() => { fetchList() }, [fetchList])
 
+  /* ⌘K trigger: { openNew, genReport } */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !client) return
+    const s = window.history.state?.usr
+    if (s?.openNew) {
+      openNew()
+      if (s.genReport) {
+        setTimeout(() => handleGenerateFullReport(), 300)
+      }
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client])
+
   // Fetch BI data when mes/ano changes in form
   useEffect(() => {
     if (!client || !form.mes || !form.ano) return

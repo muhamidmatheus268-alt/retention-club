@@ -418,6 +418,20 @@ export default function CalendarView({
 
   useEffect(() => { fetchEntries() }, [fetchEntries])
 
+  /* ⌘K action dispatcher — reads location.state and triggers modals */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const state = window.history.state?.usr || null
+    const action = state?.aiAction
+    if (!action || !isAdmin) return
+    if (action === 'gen_month')  setGenOpen(true)
+    if (action === 'gen_week')   setWeekOpen(true)
+    if (action === 'playbook')   setPlaybookOpen(true)
+    if (action === 'postmortem') setPmOpen(true)
+    /* Clear state so it doesn't re-fire on next render */
+    window.history.replaceState({ ...window.history.state, usr: {} }, '')
+  }, [isAdmin])
+
   function getEntry(day) {
     return entries.find(e => e.date === formatDate(year, month, day)) || null
   }

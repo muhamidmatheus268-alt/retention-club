@@ -11,6 +11,16 @@ export default function QuizRespostas() {
   const navigate = useNavigate()
   const { signOut } = useAuth()
 
+  /* ⌘K trigger */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.runAnalysis && !loading && respostas.length > 0) {
+      runAnalysis()
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [loading, respostas.length])
+
   async function runAnalysis() {
     setAiModal({ loading: true, data: null, error: '' })
     try {

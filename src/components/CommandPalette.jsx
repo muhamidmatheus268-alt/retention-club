@@ -146,12 +146,12 @@ export default function CommandPalette() {
       }
     }
 
-    // Actions
+    // Actions (navegação)
     const actions = [
       { key: 'new',       label: 'Novo cliente',         kw: 'novo cliente criar add',    path: '/admin', state: { openNew: true } },
       { key: 'dashboard', label: 'Painel de clientes',   kw: 'dashboard painel home',     path: '/admin' },
       { key: 'usuarios',  label: 'Gestão de usuários',   kw: 'usuarios users',            path: '/admin/usuarios' },
-      { key: 'quiz',      label: 'Funil CRM (quiz)',     kw: 'funil quiz crm',            path: '/admin/quiz-respostas' },
+      { key: 'quiz',      label: 'Funil CRM (quiz)',     kw: 'funil quiz crm',            path: '/admin/quiz-respostas', state: { runAnalysis: true } },
     ]
     for (const a of actions) {
       const s = Math.max(score(query, a.label), score(query, a.kw))
@@ -164,6 +164,34 @@ export default function CommandPalette() {
         onSelect: () => navigate(a.path, a.state ? { state: a.state } : undefined),
         color: a.key === 'new' ? '#E8642A' : '#10b981',
       })
+    }
+
+    // AI Triggers (só quando há cliente ativo)
+    if (lastSlug) {
+      const aiActions = [
+        { key: 'gen_month',   label: '✨ Gerar calendário do mês',      kw: 'gerar mes calendario ia',           path: `/admin/calendar/${lastSlug}`,       state: { aiAction: 'gen_month' } },
+        { key: 'gen_week',    label: '⚡ Gerar próxima semana',         kw: 'gerar semana rapida',                path: `/admin/calendar/${lastSlug}`,       state: { aiAction: 'gen_week' } },
+        { key: 'playbook',    label: '🎨 Aplicar playbook',              kw: 'playbook black friday maes campanha', path: `/admin/calendar/${lastSlug}`,       state: { aiAction: 'playbook' } },
+        { key: 'postmortem',  label: '📊 Análise do mês (calendário)',  kw: 'post mortem analise mes calendario', path: `/admin/calendar/${lastSlug}`,       state: { aiAction: 'postmortem' } },
+        { key: 'diagnose',    label: '🔬 Analisar Diagnóstico com IA',   kw: 'diagnostico saude metricas',         path: `/admin/diagnostico/${lastSlug}`,    state: { runAnalysis: true } },
+        { key: 'report',      label: '📝 Gerar relatório mensal',        kw: 'gerar relatorio mes cliente',        path: `/admin/relatorios/${lastSlug}`,     state: { openNew: true, genReport: true } },
+        { key: 'tasks',       label: '✅ Sugerir tarefas com IA',        kw: 'tarefas sugerir acompanhamento',     path: `/admin/acompanhamento/${lastSlug}`, state: { aiSuggest: true } },
+        { key: 'segment',     label: '🎯 Sugerir segmentações',          kw: 'segmentar segmentacoes base',        path: `/admin/base/${lastSlug}`,           state: { runSegment: true } },
+        { key: 'stack',       label: '🏦 Analisar stack',                kw: 'stack plataformas contas integracoes',path: `/admin/contas/${lastSlug}`,         state: { runStack: true } },
+        { key: 'brain',       label: '🧠 Revisar Cérebro IA',            kw: 'cerebro brain ia revisar',            path: `/admin/cerebro/${lastSlug}`,        state: { runReview: true } },
+      ]
+      for (const a of aiActions) {
+        const s = Math.max(score(query, a.label), score(query, a.kw))
+        if (s > 0) items.push({
+          type: 'ai',
+          id: `ai:${a.key}`,
+          label: a.label,
+          sub: `→ /${lastSlug}`,
+          score: s,
+          onSelect: () => navigate(a.path, { state: a.state }),
+          color: '#E8642A',
+        })
+      }
     }
 
     return items.sort((a, b) => b.score - a.score).slice(0, 12)
@@ -252,7 +280,10 @@ export default function CommandPalette() {
                 </div>
 
                 <span className="text-[9px] font-bold uppercase tracking-widest shrink-0" style={{ color: S.faint }}>
-                  {r.type === 'client' ? 'Cliente' : r.type === 'module' ? 'Módulo' : 'Ação'}
+                  {r.type === 'client' ? 'Cliente'
+                    : r.type === 'module' ? 'Módulo'
+                    : r.type === 'ai' ? 'IA'
+                    : 'Ação'}
                 </span>
 
                 {i === selected && (

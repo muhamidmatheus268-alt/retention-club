@@ -286,6 +286,16 @@ function DiagContent() {
   const [loading, setLoading] = useState(true)
   const [aiModal, setAiModal] = useState(null)  // { loading, diagnosis, stats, error }
 
+  /* ⌘K trigger: { runAnalysis: true } */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.runAnalysis && client) {
+      runDiagnosis()
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [client])
+
   async function runDiagnosis() {
     if (!client) return
     setAiModal({ loading: true, diagnosis: null, stats: null, error: '' })

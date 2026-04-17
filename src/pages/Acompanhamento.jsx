@@ -53,6 +53,16 @@ function AcompContent() {
 
   async function del(id) { if (!window.confirm('Excluir?')) return; await supabase.from('acompanhamento').delete().eq('id', id); setModal(null); await fetch() }
 
+  /* ⌘K trigger: { aiSuggest: true } */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.aiSuggest && client) {
+      openAISuggest()
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [client])
+
   async function openAISuggest() {
     setAiModal({ loading: true, suggestions: [], selected: new Set(), error: '' })
     try {

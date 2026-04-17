@@ -36,6 +36,16 @@ function BaseContent() {
   const [saved, setSaved]   = useState(false)
   const [segModal, setSegModal] = useState(null)
 
+  /* ⌘K trigger */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = window.history.state?.usr
+    if (s?.runSegment && client) {
+      runSegmentation()
+      window.history.replaceState({ ...window.history.state, usr: {} }, '')
+    }
+  }, [client])
+
   async function runSegmentation() {
     setSegModal({ loading: true, data: null, error: '' })
     try {
