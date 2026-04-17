@@ -7,8 +7,22 @@ export default function QuizRespostas() {
   const [respostas, setRespostas] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [aiModal, setAiModal] = useState(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
+
+  async function runAnalysis() {
+    setAiModal({ loading: true, data: null, error: '' })
+    try {
+      const res = await fetch('/api/analyze-quiz', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiModal({ loading: false, data: null, error: data.error || 'Erro' }); return }
+      setAiModal({ loading: false, data, error: '' })
+    } catch (e) { setAiModal({ loading: false, data: null, error: e.message }) }
+  }
 
   useEffect(() => {
     supabase
@@ -92,6 +106,13 @@ export default function QuizRespostas() {
               <h1 className="text-lg font-bold text-white">Respostas do Quiz</h1>
               <p className="text-sm text-[#555568] mt-0.5">{respostas.length} diagnóstico{respostas.length !== 1 ? 's' : ''} recebido{respostas.length !== 1 ? 's' : ''}</p>
             </div>
+            {respostas.length > 0 && (
+              <button onClick={runAnalysis}
+                className="px-3 py-2 rounded-lg text-xs font-semibold text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #E8642A, #E8642Add)', boxShadow: '0 2px 8px #E8642A40' }}>
+                ✨ Analisar respostas com IA
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -161,6 +182,108 @@ export default function QuizRespostas() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ─── AI Analysis Modal ─── */}
+      {aiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setAiModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-2xl max-h-[92vh] flex flex-col modal-panel"
+            style={{ backgroundColor: '#111118', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: '#2a2a38' }}>
+              <p className="text-white font-bold">✨ Análise do funil CRM</p>
+              <button onClick={() => setAiModal(null)} className="text-[#555568] hover:text-white text-xl leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {aiModal.loading && (
+                <div className="py-10 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 animate-spin"
+                    style={{ background: 'conic-gradient(#E8642A, transparent)', maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
+                  <p className="text-sm text-white font-semibold">IA analisando {aiModal.data?.stats?.total || ''} respostas…</p>
+                </div>
+              )}
+              {aiModal.error && (
+                <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#ef444415', border: '1px solid #ef444430', color: '#f87171' }}>{aiModal.error}</div>
+              )}
+              {aiModal.data?.analysis && (
+                <>
+                  {aiModal.data.stats && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <StatBox value={aiModal.data.stats.total}  label="total" />
+                      <StatBox value={aiModal.data.stats.last30} label="30d"  accent="#E8642A" />
+                      <StatBox value={aiModal.data.stats.last7}  label="7d"   />
+                    </div>
+                  )}
+                  <div className="rounded-xl border p-3" style={{ backgroundColor: '#0c0c10', borderColor: '#2a2a38', borderLeft: '3px solid #E8642A' }}>
+                    <p className="text-sm text-white font-semibold leading-relaxed">{aiModal.data.analysis.headline}</p>
+                  </div>
+                  {aiModal.data.analysis.insights?.length > 0 && (
+                    <Sec title="Insights" color="#6366f1">
+                      {aiModal.data.analysis.insights.map((it, i) => (
+                        <div key={i} className="text-sm" style={{ color: '#c4c4d0' }}>
+                          <p className="font-semibold text-white">{it.titulo}</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#8b8ba0' }}>{it.descricao}</p>
+                        </div>
+                      ))}
+                    </Sec>
+                  )}
+                  {aiModal.data.analysis.perfis_dominantes?.length > 0 && (
+                    <Sec title="Perfis dominantes" color="#10b981">
+                      {aiModal.data.analysis.perfis_dominantes.map((p, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <span className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: '#10b98122', color: '#34d399' }}>
+                            {p.pct_aproximado}%
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-white">{p.nome}</p>
+                            <p className="text-xs mt-0.5" style={{ color: '#8b8ba0' }}>{p.traits}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </Sec>
+                  )}
+                  {aiModal.data.analysis.oportunidades?.length > 0 && (
+                    <Sec title="Oportunidades" color="#E8642A">
+                      {aiModal.data.analysis.oportunidades.map((o, i) => (
+                        <div key={i} className="flex gap-2 text-sm">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5" style={{ backgroundColor: '#E8642A' }}>{i + 1}</span>
+                          <span style={{ color: '#c4c4d0' }}>{o}</span>
+                        </div>
+                      ))}
+                    </Sec>
+                  )}
+                  {aiModal.data.analysis.alertas?.length > 0 && (
+                    <Sec title="Alertas" color="#ef4444">
+                      {aiModal.data.analysis.alertas.map((a, i) => (
+                        <p key={i} className="text-sm" style={{ color: '#fca5a5' }}>⚠ {a}</p>
+                      ))}
+                    </Sec>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatBox({ value, label, accent }) {
+  return (
+    <div className="rounded-lg border px-3 py-2 text-center" style={{ backgroundColor: '#0c0c10', borderColor: '#2a2a38' }}>
+      <p className="text-lg font-bold" style={{ color: accent || '#fff' }}>{value}</p>
+      <p className="text-[10px]" style={{ color: '#555568' }}>{label}</p>
+    </div>
+  )
+}
+function Sec({ title, color, children }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color }}>{title}</p>
+      <div className="rounded-xl border p-3 space-y-2" style={{ backgroundColor: '#0c0c10', borderColor: '#2a2a38' }}>
+        {children}
       </div>
     </div>
   )

@@ -34,6 +34,20 @@ function BaseContent() {
   const [record, setRecord] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved]   = useState(false)
+  const [segModal, setSegModal] = useState(null)
+
+  async function runSegmentation() {
+    setSegModal({ loading: true, data: null, error: '' })
+    try {
+      const res = await window.fetch('/api/segment-base', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, mes, ano }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSegModal({ loading: false, data: null, error: data.error || 'Erro' }); return }
+      setSegModal({ loading: false, data, error: '' })
+    } catch (e) { setSegModal({ loading: false, data: null, error: e.message }) }
+  }
 
   const fetchRecord = useCallback(async () => {
     if (!client) return
@@ -79,6 +93,13 @@ function BaseContent() {
           <Sel value={ano} onChange={e => setAno(Number(e.target.value))}>
             {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
           </Sel>
+          {record && (
+            <button onClick={runSegmentation}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`, color: '#fff', boxShadow: `0 2px 8px ${brandColor}40` }}>
+              ✨ Sugerir segmentações
+            </button>
+          )}
         </div>
       </div>
 
@@ -139,6 +160,66 @@ function BaseContent() {
               <p className="text-white font-bold">{fmtInt(record[m.key])}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ─── Segmentações IA ─── */}
+      {segModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setSegModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-2xl max-h-[92vh] flex flex-col modal-panel"
+            style={{ backgroundColor: '#111118', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: '#2a2a38' }}>
+              <p className="text-white font-bold">✨ Segmentações sugeridas</p>
+              <button onClick={() => setSegModal(null)} className="text-[#555568] hover:text-white text-xl leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+              {segModal.loading && (
+                <div className="py-10 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 animate-spin"
+                    style={{ background: `conic-gradient(${brandColor}, transparent)`, maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
+                  <p className="text-sm text-white font-semibold">IA analisando base…</p>
+                </div>
+              )}
+              {segModal.error && (
+                <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#ef444415', border: '1px solid #ef444430', color: '#f87171' }}>{segModal.error}</div>
+              )}
+              {segModal.data && (
+                <>
+                  {segModal.data.resumo_base && (
+                    <div className="rounded-xl border p-3" style={{ backgroundColor: '#0c0c10', borderColor: S.border, borderLeft: `3px solid ${brandColor}` }}>
+                      <p className="text-xs text-white leading-relaxed">{segModal.data.resumo_base}</p>
+                    </div>
+                  )}
+                  {segModal.data.segmentacoes?.map((s, i) => {
+                    const priColor = s.prioridade === 'alta' ? '#ef4444' : s.prioridade === 'media' ? '#f59e0b' : '#6b7280'
+                    return (
+                      <div key={i} className="rounded-xl border p-3"
+                        style={{ backgroundColor: '#0c0c10', borderColor: S.border, borderLeft: `3px solid ${priColor}` }}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-sm font-bold text-white">{s.nome}</p>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px]" style={{ color: S.muted }}>~{s.tamanho_estimado_pct}%</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                              style={{ backgroundColor: priColor + '22', color: priColor }}>
+                              {s.prioridade}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1 text-[11px]">
+                          <p><span style={{ color: S.muted }}>Critério:</span> <span className="text-white font-mono">{s.criterio}</span></p>
+                          <p><span style={{ color: S.muted }}>Estratégia:</span> <span style={{ color: '#c4c4d0' }}>{s.estrategia}</span></p>
+                          <p><span style={{ color: S.muted }}>Canal:</span> <span style={{ color: '#c4c4d0' }}>{s.canal_recomendado}</span></p>
+                          <p style={{ color: '#8b8ba0' }}>💡 {s.impacto}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
