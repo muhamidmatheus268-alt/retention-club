@@ -29,6 +29,20 @@ function ContasContent() {
   const [form, setForm]       = useState(EMPTY_FORM)
   const [saving, setSaving]   = useState(false)
   const [showSenha, setShowSenha] = useState({})
+  const [stackModal, setStackModal] = useState(null)
+
+  async function runStackAnalysis() {
+    setStackModal({ loading: true, data: null, error: '' })
+    try {
+      const res = await window.fetch('/api/suggest-stack', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setStackModal({ loading: false, data: null, error: data.error || 'Erro' }); return }
+      setStackModal({ loading: false, data, error: '' })
+    } catch (e) { setStackModal({ loading: false, data: null, error: e.message }) }
+  }
 
   const fetch = useCallback(async () => {
     if (!client) return
@@ -68,7 +82,14 @@ function ContasContent() {
           <h1 className="text-xl font-bold text-white">Central de Contas</h1>
           <p className="text-sm mt-0.5" style={{ color: S.muted }}>Acesso centralizado a todas as plataformas do cliente</p>
         </div>
-        <button onClick={openNew} className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90" style={{ backgroundColor: brandColor }}>+ Nova conta</button>
+        <div className="flex items-center gap-2">
+          <button onClick={runStackAnalysis}
+            className="px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+            style={{ background: `linear-gradient(135deg, ${brandColor}22, ${brandColor}11)`, border: `1px solid ${brandColor}40`, color: brandColor }}>
+            ✨ Analisar stack
+          </button>
+          <button onClick={openNew} className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90" style={{ backgroundColor: brandColor }}>+ Nova conta</button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -209,6 +230,94 @@ function ContasContent() {
                 <button onClick={() => setModal(null)} className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors" style={{ borderColor: '#2a2a38', color: '#555568' }}>Cancelar</button>
                 <button onClick={save} disabled={saving} className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: brandColor }}>{saving ? 'Salvando…' : 'Salvar'}</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Stack Analysis Modal ─── */}
+      {stackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setStackModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-xl max-h-[90vh] flex flex-col modal-panel"
+            style={{ backgroundColor: '#111118', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: '#2a2a38' }}>
+              <p className="text-white font-bold">✨ Análise da stack</p>
+              <button onClick={() => setStackModal(null)} className="text-[#555568] hover:text-white text-xl leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {stackModal.loading && (
+                <div className="py-10 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 animate-spin"
+                    style={{ background: `conic-gradient(${brandColor}, transparent)`, maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
+                  <p className="text-sm text-white font-semibold">Analisando stack atual…</p>
+                </div>
+              )}
+              {stackModal.error && (
+                <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: '#ef444415', border: '1px solid #ef444430', color: '#f87171' }}>{stackModal.error}</div>
+              )}
+              {stackModal.data && (
+                <>
+                  {stackModal.data.resumo && (
+                    <div className="rounded-xl border p-3"
+                      style={{ backgroundColor: '#0c0c10', borderColor: S.border, borderLeft: `3px solid ${brandColor}` }}>
+                      <p className="text-xs text-white leading-relaxed">{stackModal.data.resumo}</p>
+                    </div>
+                  )}
+
+                  {stackModal.data.gaps_criticos?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: S.muted }}>
+                        Plataformas recomendadas
+                      </p>
+                      <div className="space-y-2">
+                        {stackModal.data.gaps_criticos.map((g, i) => (
+                          <div key={i} className="rounded-lg border p-3"
+                            style={{ backgroundColor: '#0c0c10', borderColor: S.border,
+                              borderLeft: `3px solid ${g.prioridade === 'alta' ? '#ef4444' : g.prioridade === 'media' ? '#f59e0b' : '#6b7280'}` }}>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="text-sm font-semibold text-white">{g.plataforma}</p>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[9px] uppercase tracking-wider" style={{ color: S.muted }}>{g.tipo}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                                  style={{
+                                    backgroundColor: (g.prioridade === 'alta' ? '#ef4444' : g.prioridade === 'media' ? '#f59e0b' : '#6b7280') + '22',
+                                    color: g.prioridade === 'alta' ? '#ef4444' : g.prioridade === 'media' ? '#f59e0b' : '#9ca3af',
+                                  }}>
+                                  {g.prioridade}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[11px]" style={{ color: '#8b8ba0' }}>{g.por_que}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {stackModal.data.upgrades_sugeridos?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: S.muted }}>
+                        Upgrades sugeridos
+                      </p>
+                      <div className="space-y-2">
+                        {stackModal.data.upgrades_sugeridos.map((u, i) => (
+                          <div key={i} className="rounded-lg border p-3"
+                            style={{ backgroundColor: '#0c0c10', borderColor: S.border }}>
+                            <p className="text-sm text-white">
+                              <span style={{ color: '#8b8ba0' }}>{u.plataforma_atual}</span>
+                              <span className="mx-2" style={{ color: S.muted }}>→</span>
+                              <span className="font-semibold">{u.sugestao}</span>
+                            </p>
+                            <p className="text-[11px] mt-1" style={{ color: '#8b8ba0' }}>{u.por_que}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -520,6 +520,40 @@ function ScriptModal({ msg, brandColor, onClose, onSave }) {
     setAiLoading(false)
   }
 
+  /* Preenche TODOS os campos com IA (assunto, preheader, hero, corpo, cta, notas) */
+  async function handleFullAI() {
+    setAiLoading(true); setAiError(''); setAiDone(false)
+    try {
+      const res = await fetch('/api/generate-automation', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id:     form.client_id,
+          nome:          form.nome,
+          fluxo:         form.fluxo,
+          canal:         form.canal,
+          momento:       form.momento,
+          gatilho:       form.gatilho,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiError((data.error || 'Erro') + (data.detail ? ': ' + data.detail.slice(0, 200) : '')); setAiLoading(false); return }
+      setForm(p => ({
+        ...p,
+        assunto:       data.assunto       || p.assunto,
+        preheader:     data.preheader     || p.preheader,
+        texto_hero:    data.texto_hero    || p.texto_hero,
+        texto_corpo:   data.texto_corpo   || p.texto_corpo,
+        cta:           data.cta           || p.cta,
+        notas_cliente: data.notas_cliente || p.notas_cliente,
+      }))
+      setAiDone(true)
+      setTimeout(() => setAiDone(false), 3000)
+    } catch (e) {
+      setAiError(e.message || 'Erro ao gerar')
+    }
+    setAiLoading(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
       style={{ backgroundColor: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
@@ -541,27 +575,25 @@ function ScriptModal({ msg, brandColor, onClose, onSave }) {
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: S.faint }}>
                 {isEmail ? '✉ Script do Email' : '📱 Script do WhatsApp'}
               </p>
-              {!isEmail && (
-                <button
-                  onClick={handleGenerateAI}
-                  disabled={aiLoading}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: aiDone ? '#10b98120' : brandColor + '20',
-                    color: aiDone ? '#10b981' : brandColor,
-                    border: `1px solid ${aiDone ? '#10b98140' : brandColor + '40'}`,
-                  }}
-                >
-                  {aiLoading ? (
-                    <>
-                      <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40" strokeDashoffset="10"/>
-                      </svg>
-                      Gerando…
-                    </>
-                  ) : aiDone ? '✓ Copy gerado!' : '✨ Gerar com IA'}
-                </button>
-              )}
+              <button
+                onClick={handleFullAI}
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+                style={{
+                  backgroundColor: aiDone ? '#10b98120' : brandColor + '20',
+                  color: aiDone ? '#10b981' : brandColor,
+                  border: `1px solid ${aiDone ? '#10b98140' : brandColor + '40'}`,
+                }}
+              >
+                {aiLoading ? (
+                  <>
+                    <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40" strokeDashoffset="10"/>
+                    </svg>
+                    Gerando…
+                  </>
+                ) : aiDone ? '✓ Preenchido!' : '✨ Preencher tudo com IA'}
+              </button>
             </div>
             {aiError && (
               <div className="px-4 py-2 text-xs text-red-400" style={{ backgroundColor: '#1a0a0a' }}>
@@ -856,7 +888,7 @@ function AutoContent() {
           onNewRow={fluxo => setRowModal({ ...EMPTY, fluxo })}
           onEdit={row => setRowModal({ ...row })}
           onStatusChange={statusChange}
-          onScript={row => setScriptModal({ ...row })}
+          onScript={row => setScriptModal({ ...row, client_id: row.client_id || client.id })}
         />
       ))}
 

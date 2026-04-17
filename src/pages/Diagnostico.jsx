@@ -284,6 +284,21 @@ function DiagContent() {
   const [saving,  setSaving]  = useState(false)
   const [saved,   setSaved]   = useState(false)
   const [loading, setLoading] = useState(true)
+  const [aiModal, setAiModal] = useState(null)  // { loading, diagnosis, stats, error }
+
+  async function runDiagnosis() {
+    if (!client) return
+    setAiModal({ loading: true, diagnosis: null, stats: null, error: '' })
+    try {
+      const res = await fetch('/api/diagnose', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, mes, ano }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiModal({ loading: false, diagnosis: null, stats: null, error: data.error || 'Erro' }); return }
+      setAiModal({ loading: false, diagnosis: data.diagnosis, stats: data.stats, error: '' })
+    } catch (e) { setAiModal({ loading: false, diagnosis: null, stats: null, error: e.message }) }
+  }
 
   const fetchData = useCallback(async () => {
     if (!client) return
@@ -404,6 +419,13 @@ function DiagContent() {
           <Sel value={ano} onChange={e => setAno(Number(e.target.value))}>
             {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
           </Sel>
+          {record && (
+            <button onClick={runDiagnosis}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`, color: '#fff', boxShadow: `0 2px 8px ${brandColor}40` }}>
+              ✨ Analisar com IA
+            </button>
+          )}
         </div>
       </div>
 
@@ -713,6 +735,114 @@ function DiagContent() {
           </div>
         </div>
       )}
+
+      {/* ── AI Diagnosis Modal ── */}
+      {aiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setAiModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-2xl max-h-[92vh] flex flex-col modal-panel"
+            style={{ backgroundColor: '#111118', borderColor: S.ib, boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: S.ib }}>
+              <p className="text-white font-bold">🤖 Diagnóstico inteligente · {MONTH_NAMES[mes - 1]}/{ano}</p>
+              <button onClick={() => setAiModal(null)} className="text-[#555568] hover:text-white text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {aiModal.loading && (
+                <div className="py-12 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-4 animate-spin"
+                    style={{ background: `conic-gradient(${brandColor}, transparent)`, maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
+                  <p className="text-sm text-white font-semibold">IA analisando métricas…</p>
+                </div>
+              )}
+              {aiModal.error && (
+                <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#ef444415', border: '1px solid #ef444430', color: '#f87171' }}>
+                  {aiModal.error}
+                </div>
+              )}
+              {aiModal.diagnosis && (
+                <>
+                  {/* Headline */}
+                  <div className="rounded-xl border p-4"
+                    style={{
+                      backgroundColor: aiModal.diagnosis.saude_geral === 'saudavel' ? '#10b98115'
+                        : aiModal.diagnosis.saude_geral === 'critico' ? '#ef444415' : '#f59e0b15',
+                      borderColor: aiModal.diagnosis.saude_geral === 'saudavel' ? '#10b98140'
+                        : aiModal.diagnosis.saude_geral === 'critico' ? '#ef444440' : '#f59e0b40',
+                    }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1"
+                      style={{ color: aiModal.diagnosis.saude_geral === 'saudavel' ? '#10b981'
+                        : aiModal.diagnosis.saude_geral === 'critico' ? '#ef4444' : '#f59e0b' }}>
+                      {aiModal.diagnosis.saude_geral === 'saudavel' ? '✓ Saudável'
+                        : aiModal.diagnosis.saude_geral === 'critico' ? '⚠ Crítico' : '○ Atenção'}
+                    </p>
+                    <p className="text-sm text-white font-semibold leading-relaxed">
+                      {aiModal.diagnosis.headline}
+                    </p>
+                  </div>
+
+                  {/* Métricas críticas */}
+                  {aiModal.diagnosis.metricas_criticas?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: S.muted }}>
+                        Métricas-chave
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {aiModal.diagnosis.metricas_criticas.map((m, i) => (
+                          <div key={i} className="rounded-lg border px-3 py-2"
+                            style={{
+                              backgroundColor: S.input, borderColor: S.border,
+                              borderLeft: `3px solid ${m.status === 'ok' ? '#10b981' : m.status === 'critico' ? '#ef4444' : '#f59e0b'}`,
+                            }}>
+                            <p className="text-[10px]" style={{ color: S.muted }}>{m.metrica}</p>
+                            <p className="text-sm font-bold text-white">{m.valor}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: S.muted }}>{m.comentario}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {aiModal.diagnosis.pontos_fortes?.length > 0 && (
+                    <InsightList title="Pontos fortes" emoji="✨" color="#10b981" items={aiModal.diagnosis.pontos_fortes} />
+                  )}
+                  {aiModal.diagnosis.alertas?.length > 0 && (
+                    <InsightList title="Alertas" emoji="⚠" color="#ef4444" items={aiModal.diagnosis.alertas} />
+                  )}
+                  {aiModal.diagnosis.recomendacoes?.length > 0 && (
+                    <InsightList title="Recomendações" emoji="🎯" color={brandColor} items={aiModal.diagnosis.recomendacoes} ordered />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InsightList({ title, emoji, color, items, ordered }) {
+  const Tag = ordered ? 'ol' : 'ul'
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span>{emoji}</span>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color }}>{title}</p>
+      </div>
+      <Tag className="rounded-lg border p-3 space-y-1.5" style={{ backgroundColor: S.input, borderColor: S.border }}>
+        {items.map((it, i) => (
+          <li key={i} className="flex gap-2 text-sm" style={{ color: '#c4c4d0' }}>
+            {ordered ? (
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5" style={{ backgroundColor: color }}>{i + 1}</span>
+            ) : (
+              <span className="shrink-0" style={{ color }}>●</span>
+            )}
+            <span className="flex-1 leading-relaxed">{it}</span>
+          </li>
+        ))}
+      </Tag>
     </div>
   )
 }

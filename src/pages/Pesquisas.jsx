@@ -34,6 +34,27 @@ function PesqContent() {
   const [saving, setSaving]   = useState(false)
   const [filter, setFilter]   = useState('todos')
   const [expanded, setExpanded] = useState(null)
+  const [aiState, setAiState] = useState(null) // { loading, questions, intro, error }
+
+  async function generateSurveyAI() {
+    setAiState({ loading: true, questions: null, error: '' })
+    try {
+      const res = await window.fetch('/api/generate-survey', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: client.id, tipo: form.tipo, canal: form.canal, contexto: form.notas,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiState({ loading: false, error: data.error || 'Erro' }); return }
+      setForm(f => ({
+        ...f,
+        titulo: data.titulo || f.titulo,
+        notas:  [f.notas, data.introducao && `\n[Introdução] ${data.introducao}`, data.notas_internas && `\n[Notas internas] ${data.notas_internas}`].filter(Boolean).join(''),
+      }))
+      setAiState({ loading: false, data, error: '' })
+    } catch (e) { setAiState({ loading: false, error: e.message }) }
+  }
 
   const fetch = useCallback(async () => {
     if (!client) return
@@ -193,6 +214,44 @@ function PesqContent() {
               <button onClick={() => setModal(null)} className="text-[#555568] hover:text-white text-xl">×</button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+              {/* AI Generate */}
+              <div className="rounded-xl border p-3 flex items-center justify-between gap-3"
+                style={{ background: `linear-gradient(135deg, ${brandColor}10, transparent)`, borderColor: brandColor + '40' }}>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white">✨ Gerar pesquisa com IA</p>
+                  <p className="text-[11px]" style={{ color: '#555568' }}>
+                    Cria título + perguntas estruturadas com base no tipo e no Cérebro do cliente
+                  </p>
+                </div>
+                <button onClick={generateSurveyAI} disabled={aiState?.loading}
+                  className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 shrink-0"
+                  style={{ backgroundColor: brandColor }}>
+                  {aiState?.loading ? '⏳' : '✨ Gerar'}
+                </button>
+              </div>
+              {aiState?.error && <p className="text-xs text-red-400">{aiState.error}</p>}
+              {aiState?.data?.perguntas?.length > 0 && (
+                <div className="rounded-xl border p-3 space-y-2" style={{ backgroundColor: '#0c0c10', borderColor: brandColor + '30' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: brandColor }}>
+                    Perguntas sugeridas ({aiState.data.perguntas.length})
+                  </p>
+                  {aiState.data.perguntas.map((q, i) => (
+                    <div key={i} className="flex gap-2 text-xs">
+                      <span className="font-bold text-white shrink-0">{q.ordem || i + 1}.</span>
+                      <div className="flex-1">
+                        <p className="text-white">{q.pergunta}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: '#555568' }}>
+                          {q.tipo}{q.opcoes?.length ? ` · ${q.opcoes.join(' / ')}` : ''}{q.obrigatoria ? ' · obrigatória' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[10px] mt-2" style={{ color: '#555568' }}>
+                    → Copie estas perguntas para sua ferramenta (Typeform, Google Forms, etc.)
+                  </p>
+                </div>
+              )}
               <FL label="Tipo">
                 <div className="grid grid-cols-3 gap-2">
                   {TIPO_OPTS.map(t => (
