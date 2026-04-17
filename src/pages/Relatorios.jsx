@@ -480,6 +480,37 @@ function RelContent() {
     }
   }
 
+  /* Auto-generate entire report (título + notas + análise IA) from BI + calendar */
+  async function handleGenerateFullReport() {
+    if (!client) return
+    setAiLoading(true); setAiError('')
+    try {
+      const res = await fetch('/api/generate-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: client.id,
+          mes: form.mes,
+          ano: form.ano,
+          tipo: form.tipo,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAiError((data.error || 'Erro') + (data.detail ? ': ' + data.detail.slice(0, 200) : ''))
+      } else if (data.report) {
+        setForm(f => ({
+          ...f,
+          titulo:     data.report.titulo     || f.titulo,
+          notas:      data.report.notas      || f.notas,
+          analise_ia: data.report.analise_ia || f.analise_ia,
+        }))
+      }
+    } catch (e) {
+      setAiError('Erro de conexão: ' + e.message)
+    }
+    setAiLoading(false)
+  }
+
   function updatePrint(platform, index, value) {
     setForm(f => {
       const prints = { ...f.platform_prints }
@@ -625,6 +656,25 @@ function RelContent() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+              {/* ✨ Auto-gerador completo */}
+              <div className="rounded-xl border p-4"
+                style={{ background: `linear-gradient(135deg, ${brandColor}10, transparent)`, borderColor: brandColor + '40' }}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">✨ Gerar relatório completo com IA</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: S.muted }}>
+                      Preenche título, notas e análise usando Diagnóstico + Calendário + Cérebro
+                    </p>
+                  </div>
+                  <button onClick={handleGenerateFullReport} disabled={aiLoading}
+                    className="px-4 py-2 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
+                    style={{ backgroundColor: brandColor }}>
+                    {aiLoading ? '⏳ Gerando…' : '✨ Gerar tudo'}
+                  </button>
+                </div>
+                {aiError && <p className="text-xs text-red-400 mt-2">{aiError}</p>}
+              </div>
 
               {/* Tipo */}
               <FL label="Tipo">

@@ -162,7 +162,7 @@ function ProjField({ label, value, onChange, placeholder, brandColor, type = 'nu
 
 /* ═══════════════════════════════════════════════ MAIN ═══ */
 function ProjContent() {
-  const { brandColor } = useClient()
+  const { client, brandColor } = useClient()
   const now = new Date()
   const [tab, setTab]     = useState('calc')  // 'calc' | 'cenarios'
   const [canal, setCanal] = useState('email')
@@ -172,6 +172,61 @@ function ProjContent() {
   const [wppForm, setWppForm]       = useState(EMPTY_WPP)
   const [smsForm, setSmsForm]       = useState(EMPTY_SMS)
   const [cbForm, setCbForm]         = useState(EMPTY_CASHBACK)
+  const [aiLoading, setAiLoading]   = useState(false)
+  const [aiError, setAiError]       = useState('')
+  const [aiToast, setAiToast]       = useState('')
+
+  async function handleAutoFill(scenario = 'realista') {
+    if (!client) return
+    setAiLoading(true); setAiError('')
+    try {
+      const res = await fetch('/api/forecast-autofill', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, months: 3 }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiError(data.error || 'Erro'); setAiLoading(false); return }
+      const src = data.scenarios?.[scenario] || data.averages || {}
+      const s = v => v != null ? String(v) : ''
+
+      if (canal === 'email') {
+        setEmailForm(f => ({
+          ...f,
+          base_total:     s(src.base_total),
+          taxa_abertura:  s(src.taxa_abertura),
+          taxa_cliques:   s(src.taxa_cliques),
+          taxa_conversao: s(src.taxa_conversao),
+          ticket_medio:   s(src.ticket_medio),
+        }))
+      } else if (canal === 'whatsapp') {
+        setWppForm(f => ({
+          ...f,
+          base_total:     s(src.base_total),
+          taxa_resposta:  s(src.taxa_resposta),
+          taxa_conversao: s(src.taxa_conversao),
+          ticket_medio:   s(src.ticket_medio),
+        }))
+      } else if (canal === 'sms') {
+        setSmsForm(f => ({
+          ...f,
+          base_total:     s(src.base_total),
+          taxa_cliques:   s(src.taxa_cliques),
+          taxa_conversao: s(src.taxa_conversao),
+          ticket_medio:   s(src.ticket_medio),
+        }))
+      } else if (canal === 'cashback') {
+        setCbForm(f => ({
+          ...f,
+          base:          s(src.base_ativa || src.base_total),
+          taxa_resgate:  s(src.taxa_recompra),
+          ticket_medio:  s(src.ticket_medio),
+        }))
+      }
+      setAiToast(`Campos preenchidos com base em ${data.based_on} mês(es) · cenário ${scenario}`)
+      setTimeout(() => setAiToast(''), 3500)
+    } catch (e) { setAiError(e.message) }
+    setAiLoading(false)
+  }
 
   const emailRes = calcEmail(emailForm)
   const wppRes   = calcWpp(wppForm)
@@ -349,6 +404,35 @@ function ProjContent() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      {/* AI Auto-fill strip */}
+      <div className="rounded-xl border p-3 mb-4 flex items-center gap-3 flex-wrap"
+        style={{ background: `linear-gradient(135deg, ${brandColor}10, transparent)`, borderColor: brandColor + '40' }}>
+        <div className="flex-1 min-w-[200px]">
+          <p className="text-xs font-semibold text-white">✨ Auto-preencher com dados reais do cliente</p>
+          <p className="text-[11px]" style={{ color: S.muted }}>
+            {aiToast || 'Média dos últimos 3 meses do Diagnóstico'}
+          </p>
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          <button onClick={() => handleAutoFill('pessimista')} disabled={aiLoading}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all disabled:opacity-50"
+            style={{ borderColor: '#ef444440', color: '#f87171' }}>
+            🔴 Pessimista
+          </button>
+          <button onClick={() => handleAutoFill('realista')} disabled={aiLoading}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all disabled:opacity-50"
+            style={{ borderColor: brandColor + '60', color: brandColor, backgroundColor: brandColor + '15' }}>
+            {aiLoading ? '⏳' : '🟡'} Realista
+          </button>
+          <button onClick={() => handleAutoFill('otimista')} disabled={aiLoading}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all disabled:opacity-50"
+            style={{ borderColor: '#10b98140', color: '#34d399' }}>
+            🟢 Otimista
+          </button>
+        </div>
+        {aiError && <p className="text-xs text-red-400 w-full">{aiError}</p>}
       </div>
 
       {/* Canal selector */}

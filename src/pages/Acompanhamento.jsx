@@ -28,6 +28,7 @@ function AcompContent() {
   const [form, setForm]       = useState(EMPTY_FORM)
   const [saving, setSaving]   = useState(false)
   const [filterStatus, setFilterStatus] = useState('todos')
+  const [aiModal, setAiModal] = useState(null) // { loading, suggestions, selected, error }
 
   const fetch = useCallback(async () => {
     if (!client) return
@@ -52,6 +53,56 @@ function AcompContent() {
 
   async function del(id) { if (!window.confirm('Excluir?')) return; await supabase.from('acompanhamento').delete().eq('id', id); setModal(null); await fetch() }
 
+  async function openAISuggest() {
+    setAiModal({ loading: true, suggestions: [], selected: new Set(), error: '' })
+    try {
+      const res = await window.fetch('/api/suggest-tasks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, count: 6 }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAiModal({ loading: false, suggestions: [], selected: new Set(), error: data.error || 'Erro' })
+        return
+      }
+      setAiModal({
+        loading: false,
+        suggestions: data.suggestions || [],
+        selected: new Set((data.suggestions || []).map((_, i) => i)),
+        error: '',
+      })
+    } catch (e) {
+      setAiModal({ loading: false, suggestions: [], selected: new Set(), error: e.message })
+    }
+  }
+
+  function toggleAi(i) {
+    setAiModal(m => {
+      const n = new Set(m.selected)
+      if (n.has(i)) n.delete(i); else n.add(i)
+      return { ...m, selected: n }
+    })
+  }
+
+  async function saveAISuggestions() {
+    if (!aiModal) return
+    const toInsert = aiModal.suggestions
+      .filter((_, i) => aiModal.selected.has(i))
+      .map(s => ({
+        client_id: client.id,
+        titulo: s.titulo, descricao: s.descricao,
+        status: s.status || 'pendente',
+        prioridade: s.prioridade || 'media',
+        categoria: s.categoria || '',
+        prazo: s.prazo || null,
+        responsavel: '',
+      }))
+    if (toInsert.length === 0) { setAiModal(null); return }
+    await supabase.from('acompanhamento').insert(toInsert)
+    setAiModal(null)
+    await fetch()
+  }
+
   const filtered = filterStatus === 'todos' ? list : list.filter(r => r.status === filterStatus)
 
   const counts = Object.fromEntries(STATUS_OPTS.map(s => [s.key, list.filter(r => r.status === s.key).length]))
@@ -66,7 +117,18 @@ function AcompContent() {
           <h1 className="text-xl font-bold text-white">Acompanhamento</h1>
           <p className="text-sm mt-0.5" style={{ color: S.muted }}>Tarefas, pendências e próximos passos</p>
         </div>
-        <button onClick={openNew} className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90" style={{ backgroundColor: brandColor }}>+ Nova tarefa</button>
+        <div className="flex items-center gap-2">
+          <button onClick={openAISuggest}
+            className="px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+            style={{
+              background: `linear-gradient(135deg, ${brandColor}22, ${brandColor}11)`,
+              border: `1px solid ${brandColor}40`,
+              color: brandColor,
+            }}>
+            ✨ Sugerir com IA
+          </button>
+          <button onClick={openNew} className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90" style={{ backgroundColor: brandColor }}>+ Nova tarefa</button>
+        </div>
       </div>
 
       {/* Status counters */}
@@ -185,6 +247,101 @@ function AcompContent() {
               <div className="flex gap-3">
                 <button onClick={() => setModal(null)} className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors" style={{ borderColor: '#2a2a38', color: '#555568' }}>Cancelar</button>
                 <button onClick={save} disabled={saving} className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: brandColor }}>{saving ? 'Salvando…' : 'Salvar'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── AI Suggest Modal ─── */}
+      {aiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+          style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setAiModal(null) }}>
+          <div className="rounded-2xl border w-full max-w-2xl max-h-[92vh] flex flex-col modal-panel"
+            style={{ backgroundColor: '#111118', borderColor: '#2a2a38', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: '#2a2a38' }}>
+              <p className="text-white font-bold">✨ Tarefas sugeridas pela IA</p>
+              <button onClick={() => setAiModal(null)} className="text-[#555568] hover:text-white text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+              {aiModal.loading && (
+                <div className="py-12 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-4 animate-spin"
+                    style={{ background: `conic-gradient(${brandColor}, transparent)`, maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
+                  <p className="text-sm text-white font-semibold mb-1">Analisando ATAs, calendário e métricas…</p>
+                  <p className="text-xs" style={{ color: S.muted }}>A IA está cruzando dados para sugerir próximos passos.</p>
+                </div>
+              )}
+
+              {!aiModal.loading && aiModal.error && (
+                <div className="px-4 py-3 rounded-lg text-sm text-center"
+                  style={{ backgroundColor: '#ef444415', border: '1px solid #ef444430', color: '#f87171' }}>
+                  {aiModal.error}
+                </div>
+              )}
+
+              {!aiModal.loading && aiModal.suggestions.length > 0 && (
+                <>
+                  <p className="text-xs" style={{ color: S.muted }}>
+                    {aiModal.selected.size}/{aiModal.suggestions.length} selecionadas · Desmarque as que não quiser criar.
+                  </p>
+                  {aiModal.suggestions.map((s, i) => {
+                    const on = aiModal.selected.has(i)
+                    const priCfg = PRIORIDADE_OPTS.find(p => p.key === s.prioridade) || PRIORIDADE_OPTS[1]
+                    return (
+                      <div key={i} onClick={() => toggleAi(i)}
+                        className="rounded-xl border p-3 cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: on ? '#17171f' : '#0c0c10',
+                          borderColor: on ? brandColor + '50' : '#2a2a38',
+                          opacity: on ? 1 : 0.45,
+                        }}>
+                        <div className="flex items-start gap-3">
+                          <span className="w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5"
+                            style={on ? { backgroundColor: brandColor, borderColor: brandColor } : { borderColor: '#2a2a38' }}>
+                            {on && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6.5l3 3 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                style={{ backgroundColor: priCfg.color + '22', color: priCfg.color }}>
+                                {priCfg.label}
+                              </span>
+                              {s.categoria && (
+                                <span className="text-[10px]" style={{ color: S.muted }}>{s.categoria}</span>
+                              )}
+                              {s.prazo && (
+                                <span className="text-[10px] font-mono" style={{ color: S.muted }}>⏱ {s.prazo}</span>
+                              )}
+                            </div>
+                            <p className="text-sm font-semibold text-white leading-snug">{s.titulo}</p>
+                            {s.descricao && (
+                              <p className="text-[11px] mt-1 leading-relaxed" style={{ color: '#8b8ba0' }}>{s.descricao}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between px-6 py-3 border-t shrink-0" style={{ borderColor: '#2a2a38', backgroundColor: '#0f0f17' }}>
+              <button onClick={openAISuggest} disabled={aiModal.loading}
+                className="text-xs transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ color: S.muted }}>
+                ⟳ Gerar novamente
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setAiModal(null)} className="px-4 py-1.5 rounded-lg text-sm border" style={{ borderColor: '#2a2a38', color: S.muted }}>Fechar</button>
+                <button onClick={saveAISuggestions} disabled={!aiModal.selected?.size}
+                  className="px-4 py-1.5 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40"
+                  style={{ backgroundColor: brandColor }}>
+                  Criar {aiModal.selected?.size || 0} tarefa{aiModal.selected?.size !== 1 ? 's' : ''}
+                </button>
               </div>
             </div>
           </div>
