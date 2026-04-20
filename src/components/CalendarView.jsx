@@ -737,7 +737,23 @@ export default function CalendarView({
           </button>
         </div>
 
-        {loading && <span className={`text-xs ${t.textFaint}`}>Carregando…</span>}
+        {loading && (
+          <span className={`text-xs flex items-center gap-1.5 ${t.textFaint}`}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: brandColor }} />
+            Carregando…
+          </span>
+        )}
+        {!loading && entries.length > 0 && (
+          <span className="text-xs hidden md:flex items-center gap-1.5" style={{ color: '#555568' }}>
+            <span className="text-white font-semibold">{entries.length}</span> disparo{entries.length !== 1 ? 's' : ''}
+            {entries.filter(e => e.acao_comercial).length > 0 && (
+              <>
+                <span className="opacity-50">·</span>
+                <span className="text-amber-500 font-semibold">{entries.filter(e => e.acao_comercial).length}</span> pilar{entries.filter(e => e.acao_comercial).length !== 1 ? 'es' : ''}
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {/* ── Bulk mode bar ── */}

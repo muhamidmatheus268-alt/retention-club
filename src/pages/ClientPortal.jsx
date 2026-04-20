@@ -8,6 +8,7 @@ const MODULES = [
   { key: 'calendar',    label: 'Calendário',  icon: CalIcon,   desc: 'Campanhas e réguas agendadas' },
   { key: 'diagnostico', label: 'Diagnóstico', icon: ChartIcon, desc: 'BI e métricas de performance' },
   { key: 'relatorios',  label: 'Relatórios',  icon: DocIcon,   desc: 'Relatórios mensais entregues' },
+  { key: 'ata',         label: 'ATAs',        icon: AtaIconPortal, desc: 'Reuniões e decisões' },
 ]
 
 export default function ClientPortal() {
@@ -123,8 +124,86 @@ export default function ClientPortal() {
         {activeModule === 'relatorios' && (
           <RelatoriosView client={client} brandColor={brandColor} />
         )}
+        {activeModule === 'ata' && (
+          <AtasView client={client} brandColor={brandColor} />
+        )}
       </div>
     </div>
+  )
+}
+
+/* ── ATAs view (read-only) ── */
+function AtasView({ client, brandColor }) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sel, setSel] = useState(null)
+
+  useEffect(() => {
+    supabase.from('atas').select('*')
+      .eq('client_id', client.id).order('data', { ascending: false })
+      .then(({ data }) => { setItems(data || []); setLoading(false) })
+  }, [client.id])
+
+  if (loading) return <div className="py-16 text-center"><p className="text-[#555568] text-sm">Carregando…</p></div>
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-8">
+      <h2 className="text-white font-bold text-lg mb-1">ATAs de reunião</h2>
+      <p className="text-[#555568] text-sm mb-6">Decisões e próximos passos</p>
+      {items.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl border" style={{ borderColor: '#1e1e2a' }}>
+          <p className="text-5xl mb-4">📝</p>
+          <p className="text-white font-medium mb-1">Nenhuma ATA ainda</p>
+          <p className="text-[#555568] text-sm">As ATAs das suas reuniões aparecerão aqui.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {items.map(a => (
+            <div key={a.id} className="rounded-xl border overflow-hidden"
+              style={{ backgroundColor: '#111118', borderColor: '#1e1e2a', borderLeft: `3px solid ${brandColor}` }}>
+              <button onClick={() => setSel(sel?.id === a.id ? null : a)}
+                className="w-full flex items-start justify-between p-4 text-left hover:bg-[#ffffff05] transition-colors">
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm">{a.titulo || 'Reunião'}</p>
+                  <p className="text-[#555568] text-xs mt-0.5">
+                    {a.data && new Date(a.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    {a.participantes && ` · ${a.participantes}`}
+                  </p>
+                </div>
+                <span className="text-[#555568] text-sm shrink-0 ml-3">{sel?.id === a.id ? '−' : '+'}</span>
+              </button>
+              {sel?.id === a.id && (
+                <div className="px-4 pb-4 pt-1 border-t space-y-3" style={{ borderColor: '#1e1e2a' }}>
+                  {a.resumo && <p className="text-sm" style={{ color: '#c4c4d0' }}>{a.resumo}</p>}
+                  {Array.isArray(a.action_items) && a.action_items.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: brandColor }}>Próximos passos</p>
+                      <ul className="space-y-1">
+                        {a.action_items.map((it, i) => (
+                          <li key={i} className="flex gap-2 text-xs" style={{ color: '#c4c4d0' }}>
+                            <span className="shrink-0" style={{ color: brandColor }}>●</span>
+                            <span>{typeof it === 'string' ? it : (it.descricao || it.acao || JSON.stringify(it))}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AtaIconPortal({ color }) {
+  return (
+    <svg width={13} height={13} viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="1.5" width="12" height="13" rx="1.5" stroke={color} strokeWidth="1.4"/>
+      <path d="M5 5.5h6M5 8h6M5 10.5h3.5" stroke={color} strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
   )
 }
 
