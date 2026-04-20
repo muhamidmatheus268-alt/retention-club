@@ -208,6 +208,7 @@ export default function CommandPalette() {
       { key: 'new',       label: 'Novo cliente',         kw: 'novo cliente criar add',    path: '/admin', state: { openNew: true } },
       { key: 'dashboard', label: 'Painel de clientes',   kw: 'dashboard painel home',     path: '/admin' },
       { key: 'executivo', label: 'Dashboard executivo',  kw: 'executivo cross carteira agregado', path: '/admin/executivo' },
+      { key: 'hoje',      label: 'Agenda de hoje',       kw: 'hoje agenda today diario',          path: '/admin/hoje' },
       { key: 'usuarios',  label: 'Gestão de usuários',   kw: 'usuarios users',            path: '/admin/usuarios' },
       { key: 'quiz',      label: 'Funil CRM (quiz)',     kw: 'funil quiz crm',            path: '/admin/quiz-respostas', state: { runAnalysis: true } },
     ]

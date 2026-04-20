@@ -477,6 +477,13 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
+          <button onClick={() => navigate('/admin/hoje')}
+            className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+            style={{ borderColor: S.ib, color: S.muted }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3a3a48' }}
+            onMouseLeave={e => { e.currentTarget.style.color = S.muted; e.currentTarget.style.borderColor = S.ib }}>
+            📆 Hoje
+          </button>
           <button onClick={() => navigate('/admin/executivo')}
             className="text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold"
             style={{ background: 'linear-gradient(135deg, #E8642A, #E8642Add)', color: '#fff', boxShadow: '0 2px 8px #E8642A40' }}>
