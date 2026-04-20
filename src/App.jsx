@@ -130,6 +130,7 @@ export default function App() {
                 <Route path="/admin/cerebro/:slug"        element={<Cerebro />} />
                 <Route path="/admin/imagens/:slug"        element={<BancoImagens />} />
                 <Route path="/admin/ata/:slug"            element={<ATA />} />
+                <Route path="/admin/chat/:slug"           element={<ChatCliente />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

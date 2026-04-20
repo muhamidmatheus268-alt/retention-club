@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const MODULES = [
   { key: 'calendar',       label: 'Calendário',        path: 'calendar',       kw: 'calendario posts agenda' },
+  { key: 'chat',           label: 'Chat IA',           path: 'chat',           kw: 'chat ia conversar perguntar' },
   { key: 'cerebro',        label: 'Cérebro IA',        path: 'cerebro',        kw: 'cerebro ia brain ai' },
   { key: 'diagnostico',    label: 'Diagnóstico',       path: 'diagnostico',    kw: 'diagnostico analise' },
   { key: 'automacoes',     label: 'Automações',        path: 'automacoes',     kw: 'automacao fluxo email whatsapp' },

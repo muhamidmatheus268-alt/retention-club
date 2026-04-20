@@ -5,9 +5,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { ClientProvider, useClient } from '../contexts/ClientContext'
 
 function BrainIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke={color} strokeWidth="1.4"/><path d="M5.5 7c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5M8 3V2M8 12v2M5 10.5l-1.5 1M11 10.5l1.5 1" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg> }
+function ChatIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M3 4.5A2.5 2.5 0 015.5 2h5A2.5 2.5 0 0113 4.5v3A2.5 2.5 0 0110.5 10H7l-3 2.5V10A1 1 0 013 9V4.5z" stroke={color} strokeWidth="1.4" strokeLinejoin="round"/><circle cx="6" cy="6" r=".7" fill={color}/><circle cx="8" cy="6" r=".7" fill={color}/><circle cx="10" cy="6" r=".7" fill={color}/></svg> }
 
 const MODULES = [
   { key: 'calendar',       label: 'Calendário',        path: 'calendar',       Icon: CalIcon },
+  { key: 'chat',           label: 'Chat IA',           path: 'chat',           Icon: ChatIcon },
   { key: 'cerebro',        label: 'Cérebro IA',        path: 'cerebro',        Icon: BrainIcon },
   { key: 'diagnostico',    label: 'Diagnóstico',       path: 'diagnostico',    Icon: DiagIcon },
   { key: 'automacoes',     label: 'Automações',        path: 'automacoes',     Icon: AutoIcon },
