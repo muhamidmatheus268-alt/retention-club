@@ -520,6 +520,25 @@ export default function CalendarView({
   function nextMonth() {
     if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1)
   }
+  function goToday() {
+    const n = new Date()
+    setYear(n.getFullYear()); setMonth(n.getMonth())
+  }
+
+  /* Keyboard nav: J/K for prev/next month, T for today */
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (modal) return
+      if (e.key === 'j' || e.key === 'J') { e.preventDefault(); prevMonth() }
+      if (e.key === 'k' || e.key === 'K') { e.preventDefault(); nextMonth() }
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); goToday() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [month, modal])
 
   // ── modal ─────────────────────────────────────────────────────────────────
 

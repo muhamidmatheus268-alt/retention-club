@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 const S = {
   bg: '#0c0c10', card: '#111118', panel: '#13131f',
@@ -18,6 +19,7 @@ function roleConf(key) { return ROLES.find(r => r.key === key) || ROLES[1] }
 
 export default function GestaoUsuarios() {
   const { profile: myProfile, refreshProfile } = useAuth()
+  const toast = useToast()
   const [profiles, setProfiles]  = useState([])
   const [clients, setClients]    = useState([])
   const [loading, setLoading]    = useState(true)

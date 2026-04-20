@@ -18,6 +18,14 @@ const SHORTCUTS = [
     ],
   },
   {
+    section: 'Calendário',
+    items: [
+      { keys: ['J'],                label: 'Mês anterior' },
+      { keys: ['K'],                label: 'Próximo mês' },
+      { keys: ['T'],                label: 'Ir para hoje' },
+    ],
+  },
+  {
     section: 'IA rápida (via ⌘K + termo)',
     items: [
       { keys: ['⌘K'],               label: '"gerar mes" → calendário com IA' },
