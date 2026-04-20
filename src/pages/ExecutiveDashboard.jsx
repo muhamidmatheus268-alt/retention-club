@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import YearHeatmap from '../components/YearHeatmap'
 
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const S = { bg: '#0c0c10', card: '#111118', border: '#1e1e2a', ib: '#2a2a38', muted: '#555568', faint: '#333340' }
@@ -149,6 +150,11 @@ export default function ExecutiveDashboard() {
                 )}
               </div>
             )}
+
+            {/* Year heatmap */}
+            <div className="mb-6">
+              <YearHeatmap ano={ano} brandColor="#E8642A" />
+            </div>
 
             {/* Top/Worst */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

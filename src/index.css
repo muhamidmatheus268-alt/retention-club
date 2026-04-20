@@ -111,3 +111,29 @@ select option {
 
 /* ── Link reset ── */
 a { text-decoration: none; color: inherit; }
+
+/* ── Fade-in animation (used by ActivityFeed, modals, etc.) ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fadeIn {
+  animation: fadeIn 200ms ease-out both;
+}
+
+/* ── Selection color matches brand ── */
+::selection {
+  background: #E8642A66;
+  color: #fff;
+}
+
+/* ── Tab focus only on keyboard nav ── */
+body:not(.user-is-tabbing) *:focus {
+  outline: none;
+}
+
+/* ── Smooth touch scroll on iOS ── */
+html, body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+}
