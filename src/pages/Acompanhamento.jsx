@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import AppLayout from '../layouts/AppLayout'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 
 const S = { bg: '#13131f', border: '#1e1e2a', input: '#0c0c10', ib: '#2a2a38', muted: '#555568', faint: '#444455' }
 
@@ -22,6 +23,7 @@ const EMPTY_FORM = { titulo: '', descricao: '', status: 'pendente', prioridade: 
 
 function AcompContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal]     = useState(null)
@@ -46,12 +48,20 @@ function AcompContent() {
   async function save() {
     if (!client) return; setSaving(true)
     const p = { client_id: client.id, ...form }
-    if (modal?.id) await supabase.from('acompanhamento').update(p).eq('id', modal.id)
-    else await supabase.from('acompanhamento').insert(p)
+    const { error } = modal?.id
+      ? await supabase.from('acompanhamento').update(p).eq('id', modal.id)
+      : await supabase.from('acompanhamento').insert(p)
     setSaving(false); setModal(null); await fetch()
+    if (error) toast.error(error.message)
+    else toast.success(modal?.id ? 'Tarefa atualizada.' : 'Tarefa criada.')
   }
 
-  async function del(id) { if (!window.confirm('Excluir?')) return; await supabase.from('acompanhamento').delete().eq('id', id); setModal(null); await fetch() }
+  async function del(id) {
+    if (!window.confirm('Excluir?')) return
+    const { error } = await supabase.from('acompanhamento').delete().eq('id', id)
+    setModal(null); await fetch()
+    if (error) toast.error(error.message); else toast.success('Tarefa excluída.')
+  }
 
   /* ⌘K trigger: { aiSuggest: true } */
   useEffect(() => {

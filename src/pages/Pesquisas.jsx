@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import AppLayout from '../layouts/AppLayout'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 
 const S = { bg: '#13131f', border: '#1e1e2a', input: '#0c0c10', ib: '#2a2a38', muted: '#555568', faint: '#444455' }
 
@@ -27,6 +28,7 @@ const EMPTY_FORM = { tipo: 'nps', titulo: '', canal: 'Email', status: 'planejada
 
 function PesqContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal]     = useState(null)
@@ -83,12 +85,19 @@ function PesqContent() {
       nota_media:      form.nota_media !== ''      ? parseFloat(form.nota_media)    : null,
       nps_score:       form.nps_score !== ''       ? parseFloat(form.nps_score)     : null,
     }
-    if (modal?.id) await supabase.from('pesquisas').update(p).eq('id', modal.id)
-    else await supabase.from('pesquisas').insert(p)
+    const { error } = modal?.id
+      ? await supabase.from('pesquisas').update(p).eq('id', modal.id)
+      : await supabase.from('pesquisas').insert(p)
     setSaving(false); setModal(null); await fetch()
+    if (error) toast.error(error.message); else toast.success(modal?.id ? 'Pesquisa atualizada.' : 'Pesquisa criada.')
   }
 
-  async function del(id) { if (!window.confirm('Excluir pesquisa?')) return; await supabase.from('pesquisas').delete().eq('id', id); setModal(null); await fetch() }
+  async function del(id) {
+    if (!window.confirm('Excluir pesquisa?')) return
+    const { error } = await supabase.from('pesquisas').delete().eq('id', id)
+    setModal(null); await fetch()
+    if (error) toast.error(error.message); else toast.success('Pesquisa excluída.')
+  }
 
   const filtered = filter === 'todos' ? list : list.filter(r => r.tipo === filter)
 

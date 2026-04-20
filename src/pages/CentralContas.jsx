@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import AppLayout from '../layouts/AppLayout'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 
 const S = { bg: '#13131f', border: '#1e1e2a', input: '#0c0c10', ib: '#2a2a38', muted: '#555568', faint: '#444455' }
 
@@ -23,6 +24,7 @@ const EMPTY_FORM = { plataforma: '', tipo: 'Email', status: 'ativa', login: '', 
 
 function ContasContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal]     = useState(null)
@@ -73,12 +75,19 @@ function ContasContent() {
   async function save() {
     if (!client) return; setSaving(true)
     const p = { client_id: client.id, ...form }
-    if (modal?.id) await supabase.from('central_contas').update(p).eq('id', modal.id)
-    else await supabase.from('central_contas').insert(p)
+    const { error } = modal?.id
+      ? await supabase.from('central_contas').update(p).eq('id', modal.id)
+      : await supabase.from('central_contas').insert(p)
     setSaving(false); setModal(null); await fetch()
+    if (error) toast.error(error.message); else toast.success(modal?.id ? 'Conta atualizada.' : 'Conta adicionada.')
   }
 
-  async function del(id) { if (!window.confirm('Excluir conta?')) return; await supabase.from('central_contas').delete().eq('id', id); setModal(null); await fetch() }
+  async function del(id) {
+    if (!window.confirm('Excluir conta?')) return
+    const { error } = await supabase.from('central_contas').delete().eq('id', id)
+    setModal(null); await fetch()
+    if (error) toast.error(error.message); else toast.success('Conta removida.')
+  }
 
   if (!client) return <div className="flex h-full items-center justify-center"><p className="text-[#555568] text-sm">Carregando…</p></div>
 

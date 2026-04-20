@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const MONTH_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -376,6 +377,7 @@ Seja direto, técnico e orientado a dados. Não use linguagem genérica.`
 /* ══════════════════ MAIN ══════════════════ */
 function RelContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const now = new Date()
   const [list, setList]         = useState([])
   const [loading, setLoading]   = useState(true)
@@ -467,18 +469,21 @@ function RelContent() {
       // legacy compat
       imagens: Object.values(cleanPrints).flat(),
     }
-    if (modal?.id) await supabase.from('relatorios').update(payload).eq('id', modal.id)
-    else await supabase.from('relatorios').insert(payload)
+    const { error } = modal?.id
+      ? await supabase.from('relatorios').update(payload).eq('id', modal.id)
+      : await supabase.from('relatorios').insert(payload)
     setSaving(false)
     setModal(null)
     await fetchList()
+    if (error) toast.error(error.message); else toast.success(modal?.id ? 'Relatório atualizado.' : 'Relatório criado.')
   }
 
   async function del(id) {
     if (!window.confirm('Excluir relatório?')) return
-    await supabase.from('relatorios').delete().eq('id', id)
+    const { error } = await supabase.from('relatorios').delete().eq('id', id)
     setModal(null)
     await fetchList()
+    if (error) toast.error(error.message); else toast.success('Relatório excluído.')
   }
 
   async function handleGenerateAI() {
