@@ -100,6 +100,24 @@ function ClientCard({ client, onDelete, deleting, onAccess, stats, onToast }) {
     setExporting(false)
   }
 
+  async function handleDuplicate() {
+    setMenuOpen(false)
+    const newName = window.prompt(`Duplicar "${client.name}". Nome do novo cliente:`, `${client.name} (cópia)`)
+    if (!newName?.trim()) return
+    try {
+      const res = await fetch('/api/duplicate-client', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: client.id, new_name: newName.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro')
+      onToast?.(`✓ "${newName}" criado com ${Object.values(data.summary || {}).reduce((s, v) => s + v, 0)} itens`)
+      window.location.reload()
+    } catch (e) {
+      onToast?.(`Erro ao duplicar: ${e.message}`, 'error')
+    }
+  }
+
   useEffect(() => {
     function handleClick(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
@@ -179,6 +197,13 @@ function ClientCard({ client, onDelete, deleting, onAccess, stats, onToast }) {
                   onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ffffff08'; e.currentTarget.style.color = '#fff' }}
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
                   {exporting ? '⏳ Exportando…' : '💾 Exportar dados (JSON)'}
+                </button>
+                <button onClick={handleDuplicate}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left"
+                  style={{ color: S.muted }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ffffff08'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
+                  📋 Duplicar cliente
                 </button>
                 <div className="my-1 border-t" style={{ borderColor: S.ib }} />
                 <button onClick={() => { onDelete(client.id); setMenuOpen(false) }} disabled={deleting}
