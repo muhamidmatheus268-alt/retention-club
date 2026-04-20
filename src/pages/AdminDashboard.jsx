@@ -251,6 +251,8 @@ export default function AdminDashboard() {
   const [loading, setLoading]       = useState(true)
   const [newName, setNewName]       = useState('')
   const [newColor, setNewColor]     = useState('#E8642A')
+  const [newNicho, setNewNicho]     = useState('')
+  const [newWebsite, setNewWebsite] = useState('')
   const [adding, setAdding]         = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [error, setError]           = useState('')
@@ -347,20 +349,45 @@ export default function AdminDashboard() {
     })
   }
 
-  async function handleAdd(e) {
-    e.preventDefault()
+  async function handleAdd(e, withBrief = false) {
+    if (e) e.preventDefault()
     if (!newName.trim()) return
     setError(''); setAdding(true)
     const name = newName.trim()
     const slug = generateSlug(name)
-    const { error } = await supabase.from('clients').insert({ name, slug, brand_color: newColor })
+
+    let brainToAttach = null
+    let finalColor = newColor
+
+    /* Optional AI brief */
+    if (withBrief) {
+      try {
+        toast.info('Gerando brief inicial com IA…', { duration: 2500 })
+        const briefRes = await fetch('/api/create-client-brief', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, nicho: newNicho, website: newWebsite }),
+        })
+        const briefData = await briefRes.json()
+        if (briefRes.ok) {
+          brainToAttach = briefData.brain
+          if (briefData.suggested_color && newColor === '#E8642A') finalColor = briefData.suggested_color
+        }
+      } catch { /* best-effort */ }
+    }
+
+    const payload = { name, slug, brand_color: finalColor }
+    if (brainToAttach) payload.brain = brainToAttach
+    if (newNicho)   payload.nicho = newNicho
+    if (newWebsite) payload.website = newWebsite
+
+    const { error } = await supabase.from('clients').insert(payload)
     if (error) {
       const msg = error.message.includes('duplicate') ? 'Já existe um cliente com esse nome.' : error.message
       setError(msg)
       toast.error(msg)
     } else {
-      setNewName(''); setFormOpen(false); await fetchClients()
-      toast.success(`${name} adicionado à carteira.`)
+      setNewName(''); setNewNicho(''); setNewWebsite(''); setFormOpen(false); await fetchClients()
+      toast.success(`${name} adicionado${brainToAttach ? ' · Cérebro IA preenchido' : ''}.`)
     }
     setAdding(false)
   }
@@ -513,6 +540,26 @@ export default function AdminDashboard() {
                   </p>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: S.faint }}>
+                    Nicho (opcional)
+                  </label>
+                  <input type="text" value={newNicho} onChange={e => setNewNicho(e.target.value)}
+                    placeholder="Ex: moda feminina, beauty…"
+                    className="w-full text-sm rounded-lg px-3 py-2.5 focus:outline-none"
+                    style={{ backgroundColor: S.bg, border: `1px solid ${S.ib}`, color: '#fff' }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: S.faint }}>
+                    Site (opcional)
+                  </label>
+                  <input type="text" value={newWebsite} onChange={e => setNewWebsite(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full text-sm rounded-lg px-3 py-2.5 focus:outline-none"
+                    style={{ backgroundColor: S.bg, border: `1px solid ${S.ib}`, color: '#fff' }} />
+                </div>
+              </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: S.faint }}>
                   Cor da marca
@@ -531,11 +578,16 @@ export default function AdminDashboard() {
                 </div>
               </div>
               {error && <p className="text-red-400 text-xs">{error}</p>}
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex justify-end gap-2 pt-1 flex-wrap">
                 <button type="button" onClick={() => setFormOpen(false)}
                   className="px-4 py-2 rounded-lg text-sm border transition-colors"
                   style={{ borderColor: S.ib, color: S.muted }}>
                   Cancelar
+                </button>
+                <button type="button" onClick={() => handleAdd(null, true)} disabled={adding || !newName.trim()}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50"
+                  style={{ borderColor: newColor + '80', color: newColor, backgroundColor: newColor + '15' }}>
+                  {adding ? '⏳ Gerando…' : '✨ Criar + brief IA'}
                 </button>
                 <button type="submit" disabled={adding || !newName.trim()}
                   className="px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"

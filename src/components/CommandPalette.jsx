@@ -60,6 +60,8 @@ export default function CommandPalette() {
   const [lastSlug, setLastSlug] = useState(() => {
     try { return (JSON.parse(localStorage.getItem('rc_recent_clients') || '[]') || [])[0] || null } catch { return null }
   })
+  const [contentResults, setContentResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const inputRef = useRef(null)
   const listRef  = useRef(null)
 
@@ -69,6 +71,60 @@ export default function CommandPalette() {
     supabase.from('clients').select('id, name, slug, brand_color').order('name')
       .then(({ data }) => setClients(data || []))
   }, [open, clients.length])
+
+  /* Debounced content search (in DB) */
+  useEffect(() => {
+    if (!open || !query || query.length < 3) { setContentResults([]); return }
+    setSearching(true)
+    const q = query
+    const debounce = setTimeout(async () => {
+      try {
+        const [cal, ata, tsk, rel] = await Promise.all([
+          supabase.from('calendar_entries').select('id, tema, date, client_id, channel')
+            .or(`tema.ilike.%${q}%,assunto.ilike.%${q}%,descricao.ilike.%${q}%`).limit(6),
+          supabase.from('atas').select('id, titulo, data, client_id')
+            .or(`titulo.ilike.%${q}%,pauta.ilike.%${q}%,resumo.ilike.%${q}%`).limit(4),
+          supabase.from('acompanhamento').select('id, titulo, status, client_id')
+            .or(`titulo.ilike.%${q}%,descricao.ilike.%${q}%`).limit(4),
+          supabase.from('relatorios').select('id, titulo, mes, ano, client_id')
+            .ilike('titulo', `%${q}%`).limit(3),
+        ])
+        const byId = Object.fromEntries(clients.map(c => [c.id, c]))
+        const out = []
+        for (const r of (cal.data || [])) {
+          const c = byId[r.client_id]
+          if (!c) continue
+          out.push({ type: 'content', subtype: 'cal', id: `cal-${r.id}`, label: r.tema || 'Sem tema',
+            sub: `📅 ${c.name} · ${r.channel} · ${r.date}`, score: 30,
+            onSelect: () => navigate(`/admin/calendar/${c.slug}`), color: c.brand_color || '#10b981' })
+        }
+        for (const r of (ata.data || [])) {
+          const c = byId[r.client_id]
+          if (!c) continue
+          out.push({ type: 'content', subtype: 'ata', id: `ata-${r.id}`, label: r.titulo || 'ATA',
+            sub: `📝 ${c.name} · ${r.data || ''}`, score: 28,
+            onSelect: () => navigate(`/admin/ata/${c.slug}`), color: c.brand_color || '#6366f1' })
+        }
+        for (const r of (tsk.data || [])) {
+          const c = byId[r.client_id]
+          if (!c) continue
+          out.push({ type: 'content', subtype: 'task', id: `tsk-${r.id}`, label: r.titulo,
+            sub: `✅ ${c.name} · ${r.status}`, score: 25,
+            onSelect: () => navigate(`/admin/acompanhamento/${c.slug}`), color: c.brand_color || '#f59e0b' })
+        }
+        for (const r of (rel.data || [])) {
+          const c = byId[r.client_id]
+          if (!c) continue
+          out.push({ type: 'content', subtype: 'rel', id: `rel-${r.id}`, label: r.titulo,
+            sub: `📊 ${c.name} · ${r.mes}/${r.ano}`, score: 22,
+            onSelect: () => navigate(`/admin/relatorios/${c.slug}`), color: c.brand_color || '#8b5cf6' })
+        }
+        setContentResults(out)
+      } catch { setContentResults([]) }
+      setSearching(false)
+    }, 280)
+    return () => clearTimeout(debounce)
+  }, [query, open, clients, navigate])
 
   /* Global keyboard listener */
   useEffect(() => {
@@ -196,8 +252,11 @@ export default function CommandPalette() {
       }
     }
 
-    return items.sort((a, b) => b.score - a.score).slice(0, 12)
-  }, [clients, query, navigate, lastSlug])
+    // Content results (from DB search)
+    for (const r of contentResults) items.push(r)
+
+    return items.sort((a, b) => b.score - a.score).slice(0, 15)
+  }, [clients, query, navigate, lastSlug, contentResults])
 
   /* Reset selection when results change */
   useEffect(() => { setSelected(0) }, [query])
@@ -272,8 +331,10 @@ export default function CommandPalette() {
 
                 <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-white text-[10px] font-black"
                   style={{ backgroundColor: r.color }}>
-                  {r.type === 'client' ? r.label.charAt(0).toUpperCase() :
-                   r.type === 'module' ? '◈' : '→'}
+                  {r.type === 'client' ? r.label.charAt(0).toUpperCase()
+                    : r.type === 'module' ? '◈'
+                    : r.type === 'content' ? (r.subtype === 'cal' ? '📅' : r.subtype === 'ata' ? '📝' : r.subtype === 'task' ? '✓' : '📊')
+                    : '→'}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -285,6 +346,7 @@ export default function CommandPalette() {
                   {r.type === 'client' ? 'Cliente'
                     : r.type === 'module' ? 'Módulo'
                     : r.type === 'ai' ? 'IA'
+                    : r.type === 'content' ? (r.subtype === 'cal' ? 'Post' : r.subtype === 'ata' ? 'ATA' : r.subtype === 'task' ? 'Tarefa' : 'Relatório')
                     : 'Ação'}
                 </span>
 
