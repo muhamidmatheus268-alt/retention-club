@@ -283,6 +283,26 @@ export default function AdminDashboard() {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
 
+  /* Keyboard shortcuts: N = new client, / = focus search */
+  useEffect(() => {
+    function handleKey(e) {
+      const tag = (e.target?.tagName || '').toLowerCase()
+      const isTyping = tag === 'input' || tag === 'textarea' || e.target?.isContentEditable
+      if (isTyping) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      if (e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        setFormOpen(true)
+      } else if (e.key === '/') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [])
+
   async function fetchClients() {
     setLoading(true)
     const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false })

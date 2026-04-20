@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -273,6 +274,7 @@ function CohortSection({ history, brandColor }) {
 /* ══════════════════════════════ MAIN ══════════════════════════════ */
 function DiagContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const now = new Date()
   const [tab,     setTab]     = useState('bi')
   const [inputTab,setInputTab]= useState('email')  // 'email' | 'retencao' | 'rfm'
@@ -357,9 +359,11 @@ function DiagContent() {
       client_id: client.id, mes, ano,
       ...Object.fromEntries(allKeys.map(k => [k, form[k] !== '' ? parseFloat(form[k]) : null]))
     }
-    if (record?.id) { await supabase.from('bi_email_metrics').update(payload).eq('id', record.id) }
-    else { const { data } = await supabase.from('bi_email_metrics').insert(payload).select().single(); if (data) setRecord(data) }
+    let err = null
+    if (record?.id) { const r = await supabase.from('bi_email_metrics').update(payload).eq('id', record.id); err = r.error }
+    else { const r = await supabase.from('bi_email_metrics').insert(payload).select().single(); err = r.error; if (r.data) setRecord(r.data) }
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2200)
+    if (err) toast.error(err.message); else toast.success(record?.id ? 'Métricas atualizadas.' : 'Métricas salvas.')
     await fetchData()
   }
 

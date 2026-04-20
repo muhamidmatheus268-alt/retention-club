@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import AppLayout from '../layouts/AppLayout'
 import { useClient } from '../contexts/ClientContext'
+import { useToast } from '../contexts/ToastContext'
 
 const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const S = { bg: '#13131f', border: '#1e1e2a', input: '#0c0c10', ib: '#2a2a38', muted: '#555568', faint: '#444455' }
@@ -27,6 +28,7 @@ const EMPTY = Object.fromEntries(METRICS.map(m => [m.key, '']))
 
 function BaseContent() {
   const { client, brandColor } = useClient()
+  const toast = useToast()
   const now = new Date()
   const [mes, setMes]   = useState(now.getMonth() + 1)
   const [ano, setAno]   = useState(now.getFullYear())
@@ -73,9 +75,11 @@ function BaseContent() {
     if (!client) return
     setSaving(true)
     const payload = { client_id: client.id, mes, ano, ...Object.fromEntries(METRICS.map(m => [m.key, form[m.key] !== '' ? parseFloat(form[m.key]) : null])) }
-    if (record?.id) { await supabase.from('controle_base').update(payload).eq('id', record.id) }
-    else { const { data } = await supabase.from('controle_base').insert(payload).select().single(); if (data) setRecord(data) }
+    let err = null
+    if (record?.id) { const r = await supabase.from('controle_base').update(payload).eq('id', record.id); err = r.error }
+    else { const r = await supabase.from('controle_base').insert(payload).select().single(); err = r.error; if (r.data) setRecord(r.data) }
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000)
+    if (err) toast.error(err.message); else toast.success(record?.id ? 'Base atualizada.' : 'Base salva.')
     await fetchRecord()
   }
 

@@ -11,6 +11,24 @@ const SHORTCUTS = [
     ],
   },
   {
+    section: 'Dashboard',
+    items: [
+      { keys: ['N'],                label: 'Novo cliente' },
+      { keys: ['/'],                label: 'Focar busca' },
+    ],
+  },
+  {
+    section: 'IA rápida (via ⌘K + termo)',
+    items: [
+      { keys: ['⌘K'],               label: '"gerar mes" → calendário com IA' },
+      { keys: ['⌘K'],               label: '"gerar relatorio" → relatório completo' },
+      { keys: ['⌘K'],               label: '"tarefas" → sugere 6 tarefas' },
+      { keys: ['⌘K'],               label: '"diagnostico" → análise IA' },
+      { keys: ['⌘K'],               label: '"segmentar" → segmentações' },
+      { keys: ['⌘K'],               label: '"stack" → analisa integrações' },
+    ],
+  },
+  {
     section: 'Ajuda',
     items: [
       { keys: ['?'],                label: 'Mostrar esta lista' },
