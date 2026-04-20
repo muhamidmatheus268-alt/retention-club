@@ -30,6 +30,7 @@ import ChatCliente from './pages/ChatCliente'
 import CommandPalette from './components/CommandPalette'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import ErrorBoundary from './components/ErrorBoundary'
+import RouteProgress from './components/RouteProgress'
 
 /* Smart root redirect based on role */
 function RootRedirect() {
@@ -98,6 +99,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <BrowserRouter>
+            <RouteProgress />
             <GlobalOverlays />
             <Routes>
               {/* Public */}
