@@ -31,6 +31,14 @@ function AcompContent() {
   const [saving, setSaving]   = useState(false)
   const [filterStatus, setFilterStatus] = useState('todos')
   const [aiModal, setAiModal] = useState(null) // { loading, suggestions, selected, error }
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('rc_acomp_view') || 'list') // 'list' | 'kanban'
+
+  useEffect(() => { localStorage.setItem('rc_acomp_view', viewMode) }, [viewMode])
+
+  async function changeTaskStatus(id, newStatus) {
+    await supabase.from('acompanhamento').update({ status: newStatus }).eq('id', id)
+    fetch()
+  }
 
   const fetch = useCallback(async () => {
     if (!client) return
@@ -161,19 +169,96 @@ function AcompContent() {
         ))}
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ backgroundColor: '#0c0c10', border: '1px solid #1e1e2a' }}>
-        {['todos', ...STATUS_OPTS.map(s => s.key)].map(k => (
-          <button key={k} onClick={() => setFilterStatus(k)}
-            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={filterStatus === k ? { backgroundColor: brandColor, color: '#fff' } : { color: '#555568' }}>
-            {k === 'todos' ? 'Todos' : STATUS_OPTS.find(s => s.key === k)?.label}
+      {/* Filter + View toggle */}
+      <div className="flex items-center gap-2 mb-5">
+        {viewMode === 'list' && (
+          <div className="flex-1 flex gap-1 p-1 rounded-xl" style={{ backgroundColor: '#0c0c10', border: '1px solid #1e1e2a' }}>
+            {['todos', ...STATUS_OPTS.map(s => s.key)].map(k => (
+              <button key={k} onClick={() => setFilterStatus(k)}
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={filterStatus === k ? { backgroundColor: brandColor, color: '#fff' } : { color: '#555568' }}>
+                {k === 'todos' ? 'Todos' : STATUS_OPTS.find(s => s.key === k)?.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {viewMode === 'kanban' && <div className="flex-1" />}
+        <div className="flex gap-1 p-1 rounded-xl shrink-0" style={{ backgroundColor: '#0c0c10', border: '1px solid #1e1e2a' }}>
+          <button onClick={() => setViewMode('list')}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={viewMode === 'list' ? { backgroundColor: brandColor, color: '#fff' } : { color: '#555568' }}>
+            ☰ Lista
           </button>
-        ))}
+          <button onClick={() => setViewMode('kanban')}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={viewMode === 'kanban' ? { backgroundColor: brandColor, color: '#fff' } : { color: '#555568' }}>
+            ◫ Kanban
+          </button>
+        </div>
       </div>
 
+      {/* Kanban board */}
+      {viewMode === 'kanban' && !loading && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+          {STATUS_OPTS.map(s => {
+            const items = list.filter(r => r.status === s.key)
+            return (
+              <div key={s.key} className="rounded-xl border overflow-hidden"
+                style={{ backgroundColor: S.bg, borderColor: S.border }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between"
+                  style={{ borderColor: S.border, borderLeft: `3px solid ${s.color}` }}>
+                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: s.color }}>{s.label}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: s.color + '22', color: s.color }}>{items.length}</span>
+                </div>
+                <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto"
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = s.color + '10' }}
+                  onDragLeave={(e) => { e.currentTarget.style.backgroundColor = '' }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.currentTarget.style.backgroundColor = ''
+                    const id = Number(e.dataTransfer.getData('text/plain'))
+                    if (id) changeTaskStatus(id, s.key)
+                  }}>
+                  {items.length === 0 ? (
+                    <p className="text-[11px] text-center py-4" style={{ color: S.faint }}>—</p>
+                  ) : items.map(r => {
+                    const pr = PRIORIDADE_OPTS.find(p => p.key === r.prioridade)
+                    const prazoDate = r.prazo ? new Date(r.prazo + 'T12:00:00') : null
+                    const isOverdue = prazoDate && prazoDate < new Date() && r.status !== 'concluido'
+                    return (
+                      <div key={r.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', String(r.id))
+                          e.dataTransfer.effectAllowed = 'move'
+                        }}
+                        onClick={() => openEdit(r)}
+                        className="rounded-lg border p-2.5 cursor-pointer transition-colors"
+                        style={{ backgroundColor: '#17171f', borderColor: S.border,
+                          borderLeft: `3px solid ${isOverdue ? '#ef4444' : pr?.color || s.color}` }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = brandColor + '60' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = S.border }}>
+                        <p className="text-xs font-semibold text-white leading-snug mb-1">{r.titulo}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {pr && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                            style={{ backgroundColor: pr.color + '22', color: pr.color }}>{pr.label}</span>}
+                          {r.categoria && <span className="text-[9px]" style={{ color: S.muted }}>{r.categoria}</span>}
+                          {r.prazo && <span className="text-[9px] font-mono"
+                            style={{ color: isOverdue ? '#ef4444' : S.muted }}>{r.prazo}</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* List */}
-      {loading ? <p className="text-center py-16 text-sm" style={{ color: S.muted }}>Carregando…</p>
+      {viewMode === 'list' && (loading ? <p className="text-center py-16 text-sm" style={{ color: S.muted }}>Carregando…</p>
         : filtered.length === 0 ? <div className="text-center py-20"><p className="text-3xl mb-3">✓</p><p className="text-sm" style={{ color: S.muted }}>Nenhuma tarefa encontrada.</p></div>
         : <div className="space-y-2">
             {filtered.map(r => {
@@ -209,7 +294,7 @@ function AcompContent() {
                 </div>
               )
             })}
-          </div>
+          </div>)
       }
 
       {/* Modal */}
