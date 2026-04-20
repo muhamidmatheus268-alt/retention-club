@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { exportClientData } from '../lib/clientExport'
 import ActivityFeed from '../components/ActivityFeed'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import NotificationBell from '../components/NotificationBell'
 
 function timeGreeting() {
@@ -268,6 +269,7 @@ function Stat({ value, label, accent }) {
 
 /* ─── Main page ────────────────────────────────────────────────────────── */
 export default function AdminDashboard() {
+  useDocumentTitle('Painel')
   const { signOut, isAdmin, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const S = { bg: '#0c0c10', card: '#111118', border: '#1e1e2a', ib: '#2a2a38', muted: '#555568', faint: '#333340', input: '#0a0a0f' }
 
@@ -33,6 +34,7 @@ export default function ClientSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  useDocumentTitle('Configurações', client?.name)
 
   useEffect(() => {
     supabase.from('clients').select('*').eq('slug', slug).single()

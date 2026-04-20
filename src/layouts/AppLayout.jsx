@@ -45,6 +45,9 @@ function AppShell({ children, activeModule, fullHeight }) {
   const [dropOpen, setDropOpen] = useState(false)
   const [badges, setBadges]    = useState({}) // { [moduleKey]: number }
 
+  const moduleLabel = MODULES.find(m => m.key === activeModule)?.label
+  useDocumentTitle(moduleLabel, client?.name)
+
   useEffect(() => {
     supabase.from('clients').select('id,name,slug,brand_color').order('name')
       .then(({ data }) => setClients(data || []))
