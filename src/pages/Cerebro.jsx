@@ -142,7 +142,12 @@ function CerebroContent() {
 
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#1e1e2a' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ backgroundColor: '#111118', borderColor: '#1e1e2a' }}>
-          <span className="text-xs font-semibold text-[#555568] uppercase tracking-widest">Contexto da marca</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-[#555568] uppercase tracking-widest">Contexto da marca</span>
+            <span className="text-[10px]" style={{ color: '#33333f' }}>
+              {brain ? `${brain.split(/\s+/).filter(Boolean).length} palavras · ${brain.length} chars` : '—'}
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             {saving && <span className="text-xs text-[#555568]">Salvando…</span>}
             {saved && <span className="text-xs text-emerald-500">✓ Salvo</span>}

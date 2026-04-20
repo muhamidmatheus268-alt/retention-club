@@ -254,6 +254,7 @@ export default function AdminDashboard() {
   const [error, setError]           = useState('')
   const [formOpen, setFormOpen]     = useState(false)
   const [search, setSearch]         = useState('')
+  const [sortBy, setSortBy]         = useState('recent') // recent | activity | name
   const [stats, setStats]           = useState({ posts: 0, atas: 0, today: 0 })
   const [perClient, setPerClient]   = useState({}) // { [client_id]: { posts, atas } }
   const [recentSlugs, setRecentSlugs] = useState(getRecentSlugs)
@@ -364,9 +365,21 @@ export default function AdminDashboard() {
 
   /* Derived */
   const q = search.trim().toLowerCase()
-  const filtered = q
+  let filtered = q
     ? clients.filter(c => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q))
-    : clients
+    : [...clients]
+
+  /* Sort */
+  if (sortBy === 'activity') {
+    filtered.sort((a, b) => {
+      const ap = (perClient[a.id]?.posts || 0) + (perClient[a.id]?.atas || 0)
+      const bp = (perClient[b.id]?.posts || 0) + (perClient[b.id]?.atas || 0)
+      return bp - ap
+    })
+  } else if (sortBy === 'name') {
+    filtered.sort((a, b) => a.name.localeCompare(b.name))
+  }
+  /* 'recent' = default order from fetchClients (created_at desc) */
 
   const recentClients = recentSlugs
     .map(slug => clients.find(c => c.slug === slug))
@@ -501,6 +514,24 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* ─── Sort tabs ─────────────────────────────────────────────── */}
+        {!loading && clients.length > 3 && (
+          <div className="flex items-center gap-1 p-1 rounded-xl mb-3 w-fit"
+            style={{ backgroundColor: S.card, border: `1px solid ${S.border}` }}>
+            {[
+              { k: 'recent',   l: '🕒 Recentes'   },
+              { k: 'activity', l: '⚡ Atividade'  },
+              { k: 'name',     l: 'A-Z'          },
+            ].map(o => (
+              <button key={o.k} onClick={() => setSortBy(o.k)}
+                className="px-3 py-1 rounded-lg text-[11px] font-bold transition-all"
+                style={sortBy === o.k ? { backgroundColor: '#E8642A', color: '#fff' } : { color: S.muted }}>
+                {o.l}
+              </button>
+            ))}
           </div>
         )}
 
