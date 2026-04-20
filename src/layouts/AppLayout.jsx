@@ -39,11 +39,35 @@ function AppShell({ children, activeModule, fullHeight }) {
   const { client, brandColor } = useClient()
   const [clients, setClients]  = useState([])
   const [dropOpen, setDropOpen] = useState(false)
+  const [badges, setBadges]    = useState({}) // { [moduleKey]: number }
 
   useEffect(() => {
     supabase.from('clients').select('id,name,slug,brand_color').order('name')
       .then(({ data }) => setClients(data || []))
   }, [])
+
+  /* Fetch per-module counts once we have the active client */
+  useEffect(() => {
+    if (!client?.id) return
+    const today = new Date().toISOString().slice(0, 10)
+    Promise.all([
+      supabase.from('acompanhamento').select('id', { count: 'exact', head: true })
+        .eq('client_id', client.id).eq('status', 'pendente'),
+      supabase.from('calendar_entries').select('id', { count: 'exact', head: true })
+        .eq('client_id', client.id).eq('status', 'pendente').gte('date', today),
+      supabase.from('atas').select('id', { count: 'exact', head: true })
+        .eq('client_id', client.id),
+      supabase.from('automacoes').select('id', { count: 'exact', head: true })
+        .eq('client_id', client.id).in('status_automacao', ['planejada','em_construcao']),
+    ]).then(([a, c, at, au]) => {
+      setBadges({
+        acompanhamento: a.count || 0,
+        calendar:       c.count || 0,
+        ata:            at.count || 0,
+        automacoes:     au.count || 0,
+      })
+    }).catch(() => {})
+  }, [client?.id, activeModule])
 
   function switchClient(c) {
     setDropOpen(false)
@@ -115,6 +139,7 @@ function AppShell({ children, activeModule, fullHeight }) {
               </p>
               {MODULES.map(({ key, label, path, Icon }) => {
                 const isActive = activeModule === key
+                const badge = badges[key] || 0
                 return (
                   <button key={key}
                     onClick={() => navigate(`/admin/${path}/${slug}`)}
@@ -127,6 +152,16 @@ function AppShell({ children, activeModule, fullHeight }) {
                     <span className={`text-sm font-medium flex-1 ${isActive ? 'text-white' : 'text-[#6b6b80] group-hover:text-[#9999b0]'}`}>
                       {label}
                     </span>
+                    {badge > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: isActive ? brandColor + '35' : '#2a2a38',
+                          color: isActive ? '#fff' : '#9ca3af',
+                          minWidth: 18, textAlign: 'center',
+                        }}>
+                        {badge}
+                      </span>
+                    )}
                     {isActive && <span className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: brandColor }} />}
                   </button>
                 )
