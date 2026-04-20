@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { exportClientData } from '../lib/clientExport'
 import ActivityFeed from '../components/ActivityFeed'
+import NotificationBell from '../components/NotificationBell'
 
 function timeGreeting() {
   const h = new Date().getHours()
@@ -421,6 +422,7 @@ export default function AdminDashboard() {
           <span className="font-bold text-sm text-white tracking-tight">Retention Club</span>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <button onClick={() => navigate('/admin/executivo')}
             className="text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold"
             style={{ background: 'linear-gradient(135deg, #E8642A, #E8642Add)', color: '#fff', boxShadow: '0 2px 8px #E8642A40' }}>

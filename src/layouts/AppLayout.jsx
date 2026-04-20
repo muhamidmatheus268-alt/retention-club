@@ -213,15 +213,18 @@ function AppShell({ children, activeModule, fullHeight }) {
               </>}
             </>}
           </div>
-          {client && (
-            <a href={`/calendar/${client.slug}`} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all"
-              style={{ borderColor: '#2a2a38', color: '#555568' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3a3a48' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#555568'; e.currentTarget.style.borderColor = '#2a2a38' }}>
-              <ExternalIcon size={11} /> Visão do cliente
-            </a>
-          )}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            {client && (
+              <a href={`/calendar/${client.slug}`} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all"
+                style={{ borderColor: '#2a2a38', color: '#555568' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3a3a48' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#555568'; e.currentTarget.style.borderColor = '#2a2a38' }}>
+                <ExternalIcon size={11} /> Visão do cliente
+              </a>
+            )}
+          </div>
         </header>
 
         {/* Content */}
