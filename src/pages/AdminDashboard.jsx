@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { exportClientData } from '../lib/clientExport'
 
 function timeGreeting() {
   const h = new Date().getHours()
@@ -75,14 +76,27 @@ function SkeletonCard() {
 }
 
 /* ─── ClientCard ───────────────────────────────────────────────────────── */
-function ClientCard({ client, onDelete, deleting, onAccess, stats }) {
+function ClientCard({ client, onDelete, deleting, onAccess, stats, onToast }) {
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const menuRef = useRef(null)
   const color = client.brand_color || '#E8642A'
   const posts = stats?.posts || 0
   const atas  = stats?.atas  || 0
   const hasActivity = posts > 0 || atas > 0
+
+  async function handleExport() {
+    setExporting(true); setMenuOpen(false)
+    try {
+      const summary = await exportClientData(client)
+      const total = Object.values(summary).reduce((s, v) => s + v, 0)
+      onToast?.(`✓ ${total} registros exportados de ${client.name}`)
+    } catch (e) {
+      onToast?.(`Erro ao exportar: ${e.message}`, 'error')
+    }
+    setExporting(false)
+  }
 
   useEffect(() => {
     function handleClick(e) {
@@ -157,6 +171,13 @@ function ClientCard({ client, onDelete, deleting, onAccess, stats }) {
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
                   ⚙ Configurações
                 </Link>
+                <button onClick={handleExport} disabled={exporting}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left disabled:opacity-50"
+                  style={{ color: S.muted }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ffffff08'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
+                  {exporting ? '⏳ Exportando…' : '💾 Exportar dados (JSON)'}
+                </button>
                 <div className="my-1 border-t" style={{ borderColor: S.ib }} />
                 <button onClick={() => { onDelete(client.id); setMenuOpen(false) }} disabled={deleting}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left text-red-500 hover:text-red-400 disabled:opacity-50"
@@ -579,7 +600,8 @@ export default function AdminDashboard() {
                   onDelete={handleDelete}
                   deleting={deletingId === c.id}
                   onAccess={handleAccess}
-                  stats={perClient[c.id]} />
+                  stats={perClient[c.id]}
+                  onToast={(msg, kind) => kind === 'error' ? toast.error(msg) : toast.success(msg)} />
               ))}
             </div>
           </>
