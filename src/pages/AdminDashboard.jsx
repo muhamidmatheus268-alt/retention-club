@@ -359,6 +359,11 @@ export default function AdminDashboard() {
           <span className="font-bold text-sm text-white tracking-tight">Retention Club</span>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/admin/executivo')}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors font-semibold"
+            style={{ background: 'linear-gradient(135deg, #E8642A, #E8642Add)', color: '#fff', boxShadow: '0 2px 8px #E8642A40' }}>
+            📊 Executivo
+          </button>
           {isAdmin && (
             <button onClick={() => navigate('/admin/usuarios')}
               className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
