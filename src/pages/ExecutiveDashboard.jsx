@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const S = { bg: '#0c0c10', card: '#111118', border: '#1e1e2a', ib: '#2a2a38', muted: '#555568', faint: '#333340' }
@@ -9,6 +10,7 @@ function fmtBRL(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { min
 function fmtBRLs(v) { const n = Number(v || 0); if (n >= 1e6) return 'R$' + (n/1e6).toFixed(1) + 'M'; if (n >= 1e3) return 'R$' + (n/1e3).toFixed(1) + 'k'; return fmtBRL(n) }
 
 export default function ExecutiveDashboard() {
+  useDocumentTitle('Dashboard executivo')
   const { signOut } = useAuth()
   const navigate = useNavigate()
   const now = new Date()

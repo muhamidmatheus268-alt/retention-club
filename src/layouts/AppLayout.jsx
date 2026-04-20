@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { ClientProvider, useClient } from '../contexts/ClientContext'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import NotificationBell from '../components/NotificationBell'
 
 function BrainIcon({ size, color }) { return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke={color} strokeWidth="1.4"/><path d="M5.5 7c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5M8 3V2M8 12v2M5 10.5l-1.5 1M11 10.5l1.5 1" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg> }

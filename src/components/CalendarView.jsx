@@ -6,6 +6,7 @@ import PlaybookModal from './PlaybookModal'
 import PostMortemModal from './PostMortemModal'
 import RecurringModal from './RecurringModal'
 import ImportCSVModal from './ImportCSVModal'
+import CompareCampaignsModal from './CompareCampaignsModal'
 import {
   cloneFromPreviousMonth, exportToICal, exportToCSV,
   qualityCheck, balanceCheck, bulkUpdate, bulkDelete,
@@ -350,6 +351,7 @@ export default function CalendarView({
   const [weekOpen, setWeekOpen]        = useState(false)
   const [bulkMode, setBulkMode]        = useState(false)
   const [bulkIds, setBulkIds]          = useState(() => new Set())
+  const [compareOpen, setCompareOpen]  = useState(false)
   const [bulkAction, setBulkAction]    = useState(null)
   const [variations, setVariations]    = useState(null)  // { loading, items, error }
 
@@ -803,6 +805,9 @@ export default function CalendarView({
                     if (h) applyBulk({ horario: h })
                   }} isDark={isDark}>Horário…</BulkBtn>
                 )}
+                {bulkIds.size >= 2 && (
+                  <BulkBtn onClick={() => setCompareOpen(true)} isDark={isDark}>⚖ Comparar com IA</BulkBtn>
+                )}
                 <BulkBtn onClick={deleteBulk} isDark={isDark} danger>Excluir</BulkBtn>
               </>
             )}
@@ -1189,6 +1194,11 @@ export default function CalendarView({
             clientId={clientId} channel={channel}
             brandColor={brandColor}
             onDone={(count) => { fetchEntries(); showToast(`${count} entrada${count !== 1 ? 's' : ''} importada${count !== 1 ? 's' : ''}`) }}
+          />
+          <CompareCampaignsModal
+            open={compareOpen} onClose={() => setCompareOpen(false)}
+            clientId={clientId} entryIds={[...bulkIds]}
+            brandColor={brandColor}
           />
         </>
       )}
