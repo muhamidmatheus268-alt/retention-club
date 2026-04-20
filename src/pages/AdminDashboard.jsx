@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { exportClientData } from '../lib/clientExport'
+import ActivityFeed from '../components/ActivityFeed'
 
 function timeGreeting() {
   const h = new Date().getHours()
@@ -458,6 +459,13 @@ export default function AdminDashboard() {
             <Stat value={clients.length} label={clients.length === 1 ? 'cliente ativo' : 'clientes ativos'} accent="#E8642A" />
             <Stat value={stats.posts}    label="posts este mês"   accent="#10b981" />
             {stats.atas > 0 && <Stat value={stats.atas} label="ATAs registradas" accent="#6366f1" />}
+          </div>
+        )}
+
+        {/* ─── Activity feed (cross-clients) ────────────────────────────── */}
+        {!loading && clients.length > 0 && !q && (
+          <div className="mb-6">
+            <ActivityFeed />
           </div>
         )}
 
