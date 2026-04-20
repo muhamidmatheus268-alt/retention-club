@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useClient } from '../contexts/ClientContext'
+import EmailPreview from '../components/EmailPreview'
 
 const STATUS = {
   planejada:     { label: 'Planejada',     color: '#6b7280' },
@@ -493,12 +494,13 @@ Retorne APENAS um JSON válido neste formato exato, sem texto adicional:
 }
 
 /* ── script modal ── */
-function ScriptModal({ msg, brandColor, onClose, onSave }) {
+function ScriptModal({ msg, brandColor, clientName, onClose, onSave }) {
   const [form, setForm] = useState({ ...msg })
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const [aiDone, setAiDone] = useState(false)
+  const [previewMode, setPreviewMode] = useState('inbox') // 'inbox' | 'full' | 'off'
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
   async function save() { setSaving(true); await onSave(form); setSaving(false) }
   const isEmail = form.canal !== 'WhatsApp'
@@ -640,6 +642,42 @@ function ScriptModal({ msg, brandColor, onClose, onSave }) {
                 rows={3} brandColor={brandColor} />
             </div>
           </div>
+
+          {/* ─── Email Preview (only for email channel) ─── */}
+          {isEmail && (
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: S.ib }}>
+              <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ backgroundColor: '#0e0e18', borderColor: S.ib }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: S.faint }}>
+                  👀 Preview do email
+                </p>
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: S.input, border: `1px solid ${S.ib}` }}>
+                  {['inbox', 'full', 'off'].map(m => (
+                    <button key={m} onClick={() => setPreviewMode(m)}
+                      className="px-2 py-0.5 text-[10px] font-semibold rounded transition-all"
+                      style={previewMode === m
+                        ? { backgroundColor: brandColor, color: '#fff' }
+                        : { color: S.muted }}>
+                      {m === 'inbox' ? 'Inbox' : m === 'full' ? 'Completo' : 'Off'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {previewMode !== 'off' && (
+                <div className="p-4" style={{ backgroundColor: '#0a0a12' }}>
+                  <EmailPreview
+                    assunto={form.assunto}
+                    preheader={form.preheader}
+                    texto_hero={form.texto_hero}
+                    texto_corpo={form.texto_corpo}
+                    cta={form.cta}
+                    clientName={clientName}
+                    brandColor={brandColor}
+                    mode={previewMode}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-3 px-6 py-4 border-t" style={{ borderColor: S.ib }}>
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors" style={{ borderColor: S.ib, color: S.muted }}>Cancelar</button>
@@ -893,7 +931,7 @@ function AutoContent() {
       ))}
 
       {rowModal    && <RowModal    msg={rowModal}    allFluxos={allFluxos} brandColor={brandColor} onClose={() => setRowModal(null)}    onSave={saveRow}    onDelete={del} />}
-      {scriptModal && <ScriptModal msg={scriptModal} brandColor={brandColor}              onClose={() => setScriptModal(null)} onSave={saveScript} />}
+      {scriptModal && <ScriptModal msg={scriptModal} brandColor={brandColor} clientName={client?.name} onClose={() => setScriptModal(null)} onSave={saveScript} />}
       {showSeed    && <SeedModal   brandColor={brandColor} seeding={seeding} onConfirm={seedTemplates} onClose={() => setShowSeed(false)} />}
     </div>
   )
