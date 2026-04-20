@@ -150,6 +150,13 @@ function ClientCard({ client, onDelete, deleting, onAccess, stats }) {
                   onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
                   ↗ Visão do cliente
                 </a>
+                <Link to={`/admin/settings/${client.slug}`} onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
+                  style={{ color: S.muted }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ffffff08'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = S.muted }}>
+                  ⚙ Configurações
+                </Link>
                 <div className="my-1 border-t" style={{ borderColor: S.ib }} />
                 <button onClick={() => { onDelete(client.id); setMenuOpen(false) }} disabled={deleting}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left text-red-500 hover:text-red-400 disabled:opacity-50"

@@ -24,6 +24,7 @@ import GestaoUsuarios from './pages/GestaoUsuarios'
 import BancoImagens from './pages/BancoImagens'
 import ATA from './pages/ATA'
 import ExecutiveDashboard from './pages/ExecutiveDashboard'
+import ClientSettings from './pages/ClientSettings'
 import CommandPalette from './components/CommandPalette'
 import ShortcutsHelp from './components/ShortcutsHelp'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -110,6 +111,7 @@ export default function App() {
               {/* Admin — standalone pages */}
               <Route path="/admin"                    element={<A><AdminDashboard /></A>} />
               <Route path="/admin/executivo"          element={<A><ExecutiveDashboard /></A>} />
+              <Route path="/admin/settings/:slug"     element={<A><ClientSettings /></A>} />
               <Route path="/admin/quiz-respostas"     element={<A><QuizRespostas /></A>} />
               <Route path="/admin/usuarios"           element={<AdminOnly><GestaoUsuarios /></AdminOnly>} />
 
