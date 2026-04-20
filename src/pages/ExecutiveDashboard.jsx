@@ -70,11 +70,22 @@ export default function ExecutiveDashboard() {
         </div>
 
         {loading && (
-          <div className="py-20 text-center">
-            <div className="w-10 h-10 rounded-full mx-auto mb-3 animate-spin"
-              style={{ background: 'conic-gradient(#E8642A, transparent)', maskImage: 'radial-gradient(circle, transparent 55%, #000 56%)', WebkitMaskImage: 'radial-gradient(circle, transparent 55%, #000 56%)' }} />
-            <p className="text-sm" style={{ color: S.muted }}>Consolidando dados…</p>
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="rounded-xl border p-4 animate-pulse" style={{ backgroundColor: S.card, borderColor: S.border }}>
+                  <div className="h-2 rounded w-20 mb-3" style={{ backgroundColor: S.ib }} />
+                  <div className="h-6 rounded w-24" style={{ backgroundColor: S.ib }} />
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border p-5 mb-6 animate-pulse" style={{ backgroundColor: S.card, borderColor: S.border }}>
+              <div className="h-3 rounded w-32 mb-3" style={{ backgroundColor: S.ib }} />
+              <div className="h-4 rounded w-full mb-2" style={{ backgroundColor: S.ib }} />
+              <div className="h-4 rounded w-3/4" style={{ backgroundColor: S.ib }} />
+            </div>
+            <p className="text-xs text-center" style={{ color: S.muted }}>Consolidando dados da carteira…</p>
+          </>
         )}
 
         {error && (
