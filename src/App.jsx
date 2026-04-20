@@ -25,6 +25,7 @@ import BancoImagens from './pages/BancoImagens'
 import ATA from './pages/ATA'
 import ExecutiveDashboard from './pages/ExecutiveDashboard'
 import ClientSettings from './pages/ClientSettings'
+import NotFound from './pages/NotFound'
 import ChatCliente from './pages/ChatCliente'
 import CommandPalette from './components/CommandPalette'
 import ShortcutsHelp from './components/ShortcutsHelp'
@@ -133,7 +134,8 @@ export default function App() {
                 <Route path="/admin/chat/:slug"           element={<ChatCliente />} />
               </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/404"              element={<NotFound />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </ToastProvider>

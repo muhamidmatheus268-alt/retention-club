@@ -8,7 +8,15 @@ const S = { card: '#111118', border: '#1e1e2a', muted: '#555568', faint: '#33334
 export default function ActivityFeed() {
   const [events, setEvents] = useState(null)
 
-  useEffect(() => { fetchEvents() }, [])
+  useEffect(() => {
+    fetchEvents()
+    /* Auto-refresh every 60s */
+    const interval = setInterval(fetchEvents, 60_000)
+    /* Refresh on tab focus */
+    const onVis = () => { if (document.visibilityState === 'visible') fetchEvents() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVis) }
+  }, [])
 
   async function fetchEvents() {
     try {
